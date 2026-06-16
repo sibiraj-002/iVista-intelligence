@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Search,
+  SearchCheck,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -29,6 +30,11 @@ export const sidebarNavigation = [
     title: "Google Analytics",
     href: "/seo",
     icon: Search,
+  },
+  {
+    title: "Search Console",
+    href: "/search-console",
+    icon: SearchCheck,
   },
   {
     title: "AI Insights",
