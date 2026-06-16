@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  Activity,
-  BarChart3,
+  ArrowLeft,
   Globe2,
-  Search,
-  ShieldCheck,
-  Sparkles,
+  IdCard,
   Target,
-  TrendingUp,
+  Trash2,
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { getScoreStyles } from "@/components/projects/score-styles";
+import { ProjectForm } from "@/components/projects/project-form";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -21,14 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/utils/cn";
-
-const tabs = [
-  { id: "overview", label: "Overview", icon: Activity },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "seo", label: "SEO", icon: Search },
-  { id: "ai-insights", label: "AI Insights", icon: Sparkles },
-];
+import { deleteProject, getProject, updateProject } from "@/services/projects";
 
 function MetricBlock({ icon: Icon, label, value, helper }) {
   return (
@@ -51,197 +44,76 @@ function MetricBlock({ icon: Icon, label, value, helper }) {
   );
 }
 
-function ProgressRow({ label, value }) {
-  const scoreStyles = getScoreStyles(value);
+export function ProjectDetailPage({ projectId }) {
+  const router = useRouter();
+  const [project, setProject] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-zinc-700">{label}</span>
-        <span className={cn("font-semibold", scoreStyles.text)}>{value}%</span>
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
-        <div
-          className={cn("h-full rounded-full", scoreStyles.bar)}
-          style={{ width: `${value}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+  useEffect(() => {
+    let isActive = true;
 
-function OverviewTab({ project }) {
-  const healthStyles = getScoreStyles(project.healthScore);
+    getProject(projectId)
+      .then((data) => {
+        if (isActive) {
+          setProject(data);
+          setError("");
+        }
+      })
+      .catch((loadError) => {
+        console.error("Firestore project detail load error:", loadError);
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{project.name}</CardTitle>
-          <CardDescription>
-            Core project details and health signals for {project.domain}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <MetricBlock
-            helper="Primary project workspace name."
-            icon={Target}
-            label="Project Name"
-            value={project.name}
-          />
-          <MetricBlock
-            helper="Tracked website domain."
-            icon={Globe2}
-            label="Domain"
-            value={project.domain}
-          />
-          <MetricBlock
-            helper="Estimated monthly organic sessions."
-            icon={TrendingUp}
-            label="Traffic"
-            value={project.traffic}
-          />
-          <MetricBlock
-            helper="Tracked keywords across priority clusters."
-            icon={Search}
-            label="Keywords"
-            value={project.keywords}
-          />
-        </CardContent>
-      </Card>
+        if (isActive) {
+          setError(loadError.message);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      });
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Health Score</CardTitle>
-          <CardDescription>
-            Combined view of SEO quality, content coverage, and technical
-            readiness.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className={cn("rounded-2xl p-6 text-white", healthStyles.panel)}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-zinc-400">Overall health</p>
-                <p className="mt-2 text-5xl font-semibold tracking-tight">
-                  {project.healthScore}
-                </p>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
-                <ShieldCheck className="h-7 w-7" />
-              </div>
-            </div>
-            <p className="mt-5 text-sm leading-6 text-zinc-300">
-              This project is currently marked as {project.status.toLowerCase()}.
-            </p>
-          </div>
+    return () => {
+      isActive = false;
+    };
+  }, [projectId]);
 
-          <div className="mt-5 space-y-5">
-            <ProgressRow label="SEO Score" value={project.seoScore} />
-            <ProgressRow label="Technical Health" value={project.healthScore} />
-            <ProgressRow label="Content Coverage" value={86} />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+  async function handleUpdate(values) {
+    setIsSubmitting(true);
+    setError("");
 
-function AnalyticsTab({ project }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Analytics</CardTitle>
-        <CardDescription>
-          Dummy analytics snapshot for {project.name}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-3">
-        <MetricBlock
-          helper="Estimated monthly organic traffic."
-          icon={TrendingUp}
-          label="Traffic"
-          value={project.traffic}
-        />
-        <MetricBlock
-          helper="Projected leads from organic channels."
-          icon={Target}
-          label="Lead Estimate"
-          value="1,284"
-        />
-        <MetricBlock
-          helper="Month-over-month traffic movement."
-          icon={BarChart3}
-          label="Growth"
-          value="+18.4%"
-        />
-      </CardContent>
-    </Card>
-  );
-}
+    try {
+      await updateProject(projectId, values);
+      setProject((current) => ({
+        ...current,
+        ...values,
+      }));
+    } catch (updateError) {
+      console.error("Firestore project update error:", updateError);
+      setError(updateError.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
-function SeoTab({ project }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>SEO</CardTitle>
-        <CardDescription>
-          Search performance and quality checks for {project.domain}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <ProgressRow label="SEO Score" value={project.seoScore} />
-        <ProgressRow label="Indexability" value={92} />
-        <ProgressRow label="Schema Coverage" value={78} />
-        <ProgressRow label="Internal Linking" value={84} />
-      </CardContent>
-    </Card>
-  );
-}
+  async function handleDelete() {
+    const shouldDelete = window.confirm(
+      `Delete ${project.name}? This cannot be undone.`
+    );
 
-function AiInsightsTab({ project }) {
-  const insights = [
-    "Refresh comparison pages with declining impressions.",
-    "Create new content for long-tail ecommerce discovery queries.",
-    "Improve product schema coverage on priority templates.",
-  ];
+    if (!shouldDelete) {
+      return;
+    }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>AI Insights</CardTitle>
-        <CardDescription>
-          Dummy AI recommendations generated for {project.name}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {insights.map((insight) => (
-          <div
-            className="rounded-xl border border-zinc-100 bg-zinc-50 p-4"
-            key={insight}
-          >
-            <div className="flex gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
-                <Sparkles className="h-4 w-4 text-zinc-950" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-950">
-                  Recommended action
-                </p>
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  {insight}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function ProjectDetailPage({ project }) {
-  const [activeTab, setActiveTab] = useState("overview");
+    try {
+      await deleteProject(projectId);
+      router.replace("/projects");
+    } catch (deleteError) {
+      console.error("Firestore project delete error:", deleteError);
+      setError(deleteError.message);
+    }
+  }
 
   return (
     <DashboardLayout eyebrow="Project Detail">
@@ -250,50 +122,87 @@ export function ProjectDetailPage({ project }) {
           <div>
             <p className="text-sm font-medium text-zinc-500">Project</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-              {project.name}
+              {project?.name || "Project Details"}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              A modern project workspace for analytics, SEO performance, and
-              AI-led recommendations.
+              View, edit, and manage Firestore project records.
             </p>
           </div>
-          <span className="w-fit rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
-            {project.domain}
-          </span>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              className={buttonVariants({ variant: "outline" })}
+              href="/projects"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Projects
+            </Link>
+            {project ? (
+              <Button onClick={handleDelete} variant="ghost">
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <Card>
-          <CardContent className="p-2">
-            <div className="grid gap-1 sm:grid-cols-4">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
+        {error ? (
+          <Card>
+            <CardContent className="p-4 text-sm font-medium text-red-700">
+              {error}
+            </CardContent>
+          </Card>
+        ) : null}
 
-                return (
-                  <button
-                    className={cn(
-                      "flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-zinc-950 text-white shadow-sm"
-                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
-                    )}
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    type="button"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-10 text-center text-sm font-medium text-zinc-500">
+              Loading project...
+            </CardContent>
+          </Card>
+        ) : project ? (
+          <>
+            <section className="grid gap-4 md:grid-cols-3">
+              <MetricBlock
+                helper="Primary website for this project."
+                icon={Globe2}
+                label="Website"
+                value={project.website}
+              />
+              <MetricBlock
+                helper="Linked Google Ads account identifier."
+                icon={IdCard}
+                label="Google Ads Customer ID"
+                value={project.googleAdsCustomerId || "Not set"}
+              />
+              <MetricBlock
+                helper="Linked GA4 property identifier."
+                icon={Target}
+                label="GA4 Property ID"
+                value={project.ga4PropertyId || "Not set"}
+              />
+            </section>
 
-        {activeTab === "overview" && <OverviewTab project={project} />}
-        {activeTab === "analytics" && <AnalyticsTab project={project} />}
-        {activeTab === "seo" && <SeoTab project={project} />}
-        {activeTab === "ai-insights" && <AiInsightsTab project={project} />}
+            <ProjectForm
+              description="Update Firestore project fields and integration IDs."
+              initialValues={project}
+              isSubmitting={isSubmitting}
+              onSubmit={handleUpdate}
+              submitLabel="Update Project"
+              title="Edit Project"
+            />
+          </>
+        ) : (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <p className="text-base font-semibold text-zinc-950">
+                Project not found
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                This project may have been deleted or the ID is invalid.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

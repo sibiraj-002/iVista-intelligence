@@ -1,7 +1,9 @@
 import {
   BarChart3,
+  FileText,
   FolderKanban,
   LayoutDashboard,
+  Megaphone,
   Search,
   Settings,
   Sparkles,
@@ -19,9 +21,9 @@ export const sidebarNavigation = [
     icon: FolderKanban,
   },
   {
-    title: "Analytics",
-    href: "/analytics",
-    icon: BarChart3,
+    title: "Google Ads",
+    href: "/marketing/google-ads",
+    icon: Megaphone,
   },
   {
     title: "SEO",
@@ -32,6 +34,11 @@ export const sidebarNavigation = [
     title: "AI Insights",
     href: "/ai-insights",
     icon: Sparkles,
+  },
+  {
+    title: "Reports",
+    href: "/analytics",
+    icon: FileText,
   },
   {
     title: "Settings",

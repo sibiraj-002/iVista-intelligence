@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
+  ExternalLink,
   Grid2X2,
-  ListFilter,
+  Plus,
   Search,
   Table2,
+  Trash2,
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { projects, projectStatuses } from "@/components/projects/projects-data";
-import { getScoreStyles } from "@/components/projects/score-styles";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -29,12 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { deleteProject, getProjects } from "@/services/projects";
 import { cn } from "@/utils/cn";
 
 const statusStyles = {
   Active: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  Review: "bg-amber-50 text-amber-700 ring-amber-100",
-  Paused: "bg-zinc-100 text-zinc-600 ring-zinc-200",
+  Paused: "bg-amber-50 text-amber-700 ring-amber-100",
+  Draft: "bg-zinc-100 text-zinc-600 ring-zinc-200",
 };
 
 function StatusBadge({ status }) {
@@ -50,44 +51,14 @@ function StatusBadge({ status }) {
   );
 }
 
-function SeoScore({ score }) {
-  const scoreStyles = getScoreStyles(score);
-
+function ProjectCard({ onDelete, project }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-2 w-24 overflow-hidden rounded-full bg-zinc-100">
-        <div
-          className={cn("h-full rounded-full", scoreStyles.bar)}
-          style={{ width: `${score}%` }}
-        />
-      </div>
-      <span
-        className={cn(
-          "rounded-full px-2 py-0.5 text-xs font-semibold ring-1",
-          scoreStyles.badge
-        )}
-      >
-        {score}
-      </span>
-    </div>
-  );
-}
-
-function ProjectCard({ project }) {
-  const scoreStyles = getScoreStyles(project.seoScore);
-
-  return (
-    <Card
-      className={cn(
-        "border-l-4 transition-shadow hover:shadow-md",
-        scoreStyles.border
-      )}
-    >
+    <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle>{project.name}</CardTitle>
-            <CardDescription>{project.domain}</CardDescription>
+            <CardDescription>{project.website}</CardDescription>
           </div>
           <StatusBadge status={project.status} />
         </div>
@@ -96,46 +67,57 @@ function ProjectCard({ project }) {
         <div className="grid gap-4 rounded-xl bg-zinc-50 p-4 sm:grid-cols-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Traffic
+              Industry
             </p>
-            <p className="mt-1 text-xl font-semibold text-zinc-950">
-              {project.traffic}
+            <p className="mt-1 text-sm font-semibold text-zinc-950">
+              {project.industry}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              SEO Score
+              GA4 Property
             </p>
-            <div className="mt-2">
-              <SeoScore score={project.seoScore} />
-            </div>
+            <p className="mt-1 text-sm font-semibold text-zinc-950">
+              {project.ga4PropertyId || "Not set"}
+            </p>
           </div>
         </div>
-        <Link
-          className={buttonVariants({
-            className: "mt-5 w-full",
-            variant: "outline",
-          })}
-          href={`/projects/${project.id}`}
-        >
-          View Analytics
-          <ArrowUpRight className="h-4 w-4" />
-        </Link>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <Link
+            className={buttonVariants({
+              className: "w-full",
+              variant: "outline",
+            })}
+            href={`/projects/${project.id}`}
+          >
+            Manage
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <Button
+            className="w-full"
+            onClick={() => onDelete(project)}
+            variant="ghost"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function ProjectsTable({ filteredProjects }) {
+function ProjectsTable({ filteredProjects, onDelete }) {
   return (
     <Card>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Project Name</TableHead>
-            <TableHead>Domain</TableHead>
-            <TableHead>Traffic</TableHead>
-            <TableHead>SEO Score</TableHead>
+            <TableHead>Website</TableHead>
+            <TableHead>Google Ads ID</TableHead>
+            <TableHead>GA4 Property ID</TableHead>
+            <TableHead>Industry</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
@@ -146,21 +128,37 @@ function ProjectsTable({ filteredProjects }) {
               <TableCell className="font-semibold text-zinc-950">
                 {project.name}
               </TableCell>
-              <TableCell className="text-zinc-500">{project.domain}</TableCell>
-              <TableCell className="font-medium">{project.traffic}</TableCell>
-              <TableCell>
-                <SeoScore score={project.seoScore} />
+              <TableCell className="text-zinc-500">
+                <a
+                  className="inline-flex items-center gap-1 hover:text-zinc-950"
+                  href={project.website}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {project.website}
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
               </TableCell>
+              <TableCell>{project.googleAdsCustomerId || "Not set"}</TableCell>
+              <TableCell>{project.ga4PropertyId || "Not set"}</TableCell>
+              <TableCell>{project.industry}</TableCell>
               <TableCell>
                 <StatusBadge status={project.status} />
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="flex justify-end gap-2">
                 <Link
                   className={buttonVariants({ size: "sm", variant: "outline" })}
                   href={`/projects/${project.id}`}
                 >
-                  View Analytics
+                  Edit
                 </Link>
+                <Button
+                  onClick={() => onDelete(project)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Delete
+                </Button>
               </TableCell>
             </TableRow>
           ))}
@@ -171,9 +169,72 @@ function ProjectsTable({ filteredProjects }) {
 }
 
 export function ProjectsPage() {
+  const [projects, setProjects] = useState([]);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("All");
   const [view, setView] = useState("grid");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadProjects() {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const data = await getProjects();
+      setProjects(data);
+    } catch (loadError) {
+      console.error("Firestore projects load error:", loadError);
+      setError(loadError.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let isActive = true;
+
+    getProjects()
+      .then((data) => {
+        if (isActive) {
+          setProjects(data);
+          setError("");
+        }
+      })
+      .catch((loadError) => {
+        console.error("Firestore projects load error:", loadError);
+
+        if (isActive) {
+          setError(loadError.message);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  async function handleDelete(project) {
+    const shouldDelete = window.confirm(
+      `Delete ${project.name}? This cannot be undone.`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      await deleteProject(project.id);
+      await loadProjects();
+    } catch (deleteError) {
+      console.error("Firestore project delete error:", deleteError);
+      setError(deleteError.message);
+    }
+  }
 
   const filteredProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -181,12 +242,12 @@ export function ProjectsPage() {
     return projects.filter((project) => {
       const matchesQuery =
         project.name.toLowerCase().includes(normalizedQuery) ||
-        project.domain.toLowerCase().includes(normalizedQuery);
-      const matchesStatus = status === "All" || project.status === status;
+        project.website.toLowerCase().includes(normalizedQuery) ||
+        project.industry.toLowerCase().includes(normalizedQuery);
 
-      return matchesQuery && matchesStatus;
+      return matchesQuery;
     });
-  }, [query, status]);
+  }, [projects, query]);
 
   return (
     <DashboardLayout eyebrow="Projects">
@@ -202,13 +263,19 @@ export function ProjectsPage() {
               client website and growth project.
             </p>
           </div>
-          <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
-            {filteredProjects.length} projects found
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
+              {filteredProjects.length} projects found
+            </div>
+            <Link className={buttonVariants()} href="/projects/new">
+              <Plus className="h-4 w-4" />
+              Add Project
+            </Link>
           </div>
         </div>
 
         <Card>
-          <CardContent className="grid gap-4 p-4 md:grid-cols-[1fr_auto_auto]">
+          <CardContent className="grid gap-4 p-4 md:grid-cols-[1fr_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
@@ -217,21 +284,6 @@ export function ProjectsPage() {
                 placeholder="Search projects or domains..."
                 value={query}
               />
-            </label>
-
-            <label className="relative block">
-              <ListFilter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              <select
-                className="h-10 w-full appearance-none rounded-xl border border-zinc-200 bg-white pl-9 pr-8 text-sm font-medium text-zinc-700 outline-none transition-colors focus:border-zinc-400 md:w-44"
-                onChange={(event) => setStatus(event.target.value)}
-                value={status}
-              >
-                {projectStatuses.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
             </label>
 
             <div className="grid grid-cols-2 rounded-xl border border-zinc-200 bg-zinc-50 p-1">
@@ -257,15 +309,36 @@ export function ProjectsPage() {
           </CardContent>
         </Card>
 
-        {filteredProjects.length > 0 ? (
+        {error ? (
+          <Card>
+            <CardContent className="p-4 text-sm font-medium text-red-700">
+              {error}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-10 text-center text-sm font-medium text-zinc-500">
+              Loading projects...
+            </CardContent>
+          </Card>
+        ) : filteredProjects.length > 0 ? (
           view === "grid" ? (
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
+                <ProjectCard
+                  key={project.id}
+                  onDelete={handleDelete}
+                  project={project}
+                />
               ))}
             </section>
           ) : (
-            <ProjectsTable filteredProjects={filteredProjects} />
+            <ProjectsTable
+              filteredProjects={filteredProjects}
+              onDelete={handleDelete}
+            />
           )
         ) : (
           <Card>
