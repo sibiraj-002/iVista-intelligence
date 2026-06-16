@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getPageViews } from "@/services/googleAnalytics";
+import { getPageViews } from "@/services/google-analytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

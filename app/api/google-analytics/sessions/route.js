@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSessions } from "@/services/googleAnalytics";
+import { getSessions } from "@/services/google-analytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -26,7 +26,7 @@ export const sidebarNavigation = [
     icon: Megaphone,
   },
   {
-    title: "SEO",
+    title: "Google Analytics",
     href: "/seo",
     icon: Search,
   },

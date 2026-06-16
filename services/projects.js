@@ -1,85 +1,67 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-} from "firebase/firestore";
+async function parseProjectResponse(response) {
+  const data = await response.json();
 
-const COLLECTION_NAME = "projects";
+  if (!response.ok) {
+    throw new Error(data.error || "Project request failed.");
+  }
 
-async function getDb() {
-  const { db } = await import("@/firebase/config");
-
-  return db;
-}
-
-function serializeProject(snapshot) {
-  const data = snapshot.data();
-
-  return {
-    id: snapshot.id,
-    ...data,
-    createdAt: data.createdAt?.toDate?.().toISOString() || null,
-  };
+  return data;
 }
 
 export async function getProjects() {
-  const db = await getDb();
-  const projectsQuery = query(
-    collection(db, COLLECTION_NAME),
-    orderBy("createdAt", "desc")
+  const data = await parseProjectResponse(
+    await fetch("/api/projects", {
+      cache: "no-store",
+    })
   );
-  const snapshot = await getDocs(projectsQuery);
 
-  return snapshot.docs.map(serializeProject);
+  return data.projects;
 }
 
 export async function getProject(projectId) {
-  const db = await getDb();
-  const snapshot = await getDoc(doc(db, COLLECTION_NAME, projectId));
+  const response = await fetch(`/api/projects/${projectId}`, {
+    cache: "no-store",
+  });
 
-  if (!snapshot.exists()) {
+  if (response.status === 404) {
     return null;
   }
 
-  return serializeProject(snapshot);
+  const data = await parseProjectResponse(response);
+
+  return data.project;
 }
 
 export async function addProject(project) {
-  const db = await getDb();
-
-  return addDoc(collection(db, COLLECTION_NAME), {
-    name: project.name,
-    website: project.website,
-    googleAdsCustomerId: project.googleAdsCustomerId,
-    ga4PropertyId: project.ga4PropertyId,
-    industry: project.industry,
-    status: project.status,
-    createdAt: serverTimestamp(),
-  });
+  return parseProjectResponse(
+    await fetch("/api/projects", {
+      body: JSON.stringify(project),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+  );
 }
 
 export async function updateProject(projectId, project) {
-  const db = await getDb();
+  const data = await parseProjectResponse(
+    await fetch(`/api/projects/${projectId}`, {
+      body: JSON.stringify(project),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PUT",
+    })
+  );
 
-  return updateDoc(doc(db, COLLECTION_NAME, projectId), {
-    name: project.name,
-    website: project.website,
-    googleAdsCustomerId: project.googleAdsCustomerId,
-    ga4PropertyId: project.ga4PropertyId,
-    industry: project.industry,
-    status: project.status,
-  });
+  return data.project;
 }
 
 export async function deleteProject(projectId) {
-  const db = await getDb();
-
-  return deleteDoc(doc(db, COLLECTION_NAME, projectId));
+  return parseProjectResponse(
+    await fetch(`/api/projects/${projectId}`, {
+      method: "DELETE",
+    })
+  );
 }
