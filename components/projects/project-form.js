@@ -16,6 +16,7 @@ const defaultValues = {
   website: "",
   googleAdsCustomerId: "",
   ga4PropertyId: "",
+  searchConsoleSiteUrl: "",
   industry: "",
   status: "Active",
 };
@@ -104,6 +105,20 @@ export function ProjectForm({
                 }
                 placeholder="123456789"
                 value={formData.ga4PropertyId}
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-zinc-700">
+                Search Console Site URL
+              </span>
+              <input
+                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                onChange={(event) =>
+                  updateField("searchConsoleSiteUrl", event.target.value)
+                }
+                placeholder="https://example.com/"
+                value={formData.searchConsoleSiteUrl}
               />
             </label>
 

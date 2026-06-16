@@ -36,6 +36,7 @@ function toProjectPayload(project) {
     website: project.website,
     googleAdsCustomerId: project.googleAdsCustomerId || "",
     ga4PropertyId: project.ga4PropertyId || "",
+    searchConsoleSiteUrl: project.searchConsoleSiteUrl || "",
     industry: project.industry,
     status: project.status,
   };
