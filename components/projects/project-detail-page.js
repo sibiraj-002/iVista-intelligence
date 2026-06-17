@@ -8,6 +8,7 @@ import {
   Globe2,
   IdCard,
   SearchCheck,
+  Tag,
   Target,
   Trash2,
 } from "lucide-react";
@@ -162,7 +163,7 @@ export function ProjectDetailPage({ projectId }) {
           </Card>
         ) : project ? (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <MetricBlock
                 helper="Primary website for this project."
                 icon={Globe2}
@@ -186,6 +187,18 @@ export function ProjectDetailPage({ projectId }) {
                 icon={SearchCheck}
                 label="Search Console"
                 value={project.searchConsoleSiteUrl || "Not set"}
+              />
+              <MetricBlock
+                helper="Linked Google Tag Manager account identifier."
+                icon={Tag}
+                label="GTM Account ID"
+                value={project.gtmAccountId || "Not set"}
+              />
+              <MetricBlock
+                helper="Linked Google Tag Manager container identifier."
+                icon={Tag}
+                label="GTM Container ID"
+                value={project.gtmContainerId || "Not set"}
               />
             </section>
 

@@ -8,6 +8,7 @@ import {
   SearchCheck,
   Settings,
   Sparkles,
+  Tag,
 } from "lucide-react";
 
 export const sidebarNavigation = [
@@ -35,6 +36,11 @@ export const sidebarNavigation = [
     title: "Search Console",
     href: "/search-console",
     icon: SearchCheck,
+  },
+  {
+    title: "Google Tag Manager",
+    href: "/google-tag-manager",
+    icon: Tag,
   },
   {
     title: "AI Insights",

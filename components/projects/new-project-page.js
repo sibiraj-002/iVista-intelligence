@@ -44,8 +44,8 @@ export function NewProjectPage() {
               New Project
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Add a client website and connect Google Ads, GA4, and Search
-              Console identifiers.
+              Add a client website and connect Google Ads, GA4, Search Console,
+              and GTM identifiers.
             </p>
           </div>
           <Link
