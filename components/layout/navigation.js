@@ -1,14 +1,11 @@
 import {
   BarChart3,
   FileText,
-  FolderKanban,
+  Gauge,
   LayoutDashboard,
   Megaphone,
-  Search,
   SearchCheck,
-  Settings,
   Sparkles,
-  Tag,
 } from "lucide-react";
 
 export const sidebarNavigation = [
@@ -18,19 +15,17 @@ export const sidebarNavigation = [
     icon: LayoutDashboard,
   },
   {
-    title: "Projects",
-    href: "/projects",
-    icon: FolderKanban,
+    title: "Reports",
+    href: "/analytics",
+    icon: FileText,
   },
+];
+
+export const projectToolNavigation = [
   {
-    title: "Google Ads",
-    href: "/marketing/google-ads",
-    icon: Megaphone,
-  },
-  {
-    title: "Google Analytics",
+    title: "GA4",
     href: "/seo",
-    icon: Search,
+    icon: BarChart3,
   },
   {
     title: "Search Console",
@@ -38,23 +33,18 @@ export const sidebarNavigation = [
     icon: SearchCheck,
   },
   {
-    title: "Google Tag Manager",
-    href: "/google-tag-manager",
-    icon: Tag,
+    title: "Google Ads",
+    href: "/marketing/google-ads",
+    icon: Megaphone,
   },
   {
-    title: "AI Insights",
+    title: "PageSpeed Insights",
+    href: "/page-speed-insights",
+    icon: Gauge,
+  },
+  {
+    title: "AI Analysis",
     href: "/ai-insights",
     icon: Sparkles,
-  },
-  {
-    title: "Reports",
-    href: "/analytics",
-    icon: FileText,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
   },
 ];

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getGoogleAnalyticsDashboard } from "@/services/google-analytics";
+import { getGoogleAnalyticsMonthlyComparison } from "@/services/google-analytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,20 +8,14 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const propertyId = searchParams.get("propertyId");
-  const range = searchParams.get("range") || "this_month";
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
+  const months = searchParams.get("months") || "3";
 
   try {
-    const data = await getGoogleAnalyticsDashboard(propertyId, {
-      endDate,
-      range,
-      startDate,
-    });
+    const data = await getGoogleAnalyticsMonthlyComparison(propertyId, months);
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Google Analytics summary API error:", error);
+    console.error("Google Analytics compare API error:", error);
 
     return NextResponse.json(
       {

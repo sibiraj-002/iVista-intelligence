@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
@@ -24,6 +26,7 @@ import {
 } from "recharts";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -102,7 +105,9 @@ function MetricCard({ icon: Icon, label, value, helper }) {
         <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
           {value}
         </p>
-        <p className="mt-2 text-sm text-zinc-500">{helper}</p>
+        <div className="mt-2">
+          <p className="text-sm text-zinc-500">{helper}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -333,6 +338,11 @@ function PageDetailsTable({ pages }) {
 }
 
 export function GoogleAnalyticsPage() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
+  const range = searchParams.get("range") || "this_month";
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [analytics, setAnalytics] = useState(emptyAnalytics);
@@ -341,16 +351,10 @@ export function GoogleAnalyticsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
-  const analyticsProjects = useMemo(
-    () => projects.filter((project) => project.ga4PropertyId),
-    [projects]
-  );
-
   const selectedProject = useMemo(
     () =>
-      analyticsProjects.find((project) => project.id === selectedProjectId) ||
-      null,
-    [analyticsProjects, selectedProjectId]
+      projects.find((project) => project.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
   );
 
   useEffect(() => {
@@ -362,10 +366,13 @@ export function GoogleAnalyticsPage() {
           return;
         }
 
+        const selectedProject =
+          data.find((project) => project.id === projectIdParam) ||
+          data.find((project) => project.ga4PropertyId) ||
+          data[0];
+
         setProjects(data);
-        setSelectedProjectId(
-          data.find((project) => project.ga4PropertyId)?.id || ""
-        );
+        setSelectedProjectId(selectedProject?.id || "");
         setError("");
       })
       .catch((loadError) => {
@@ -384,7 +391,11 @@ export function GoogleAnalyticsPage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [projectIdParam]);
+
+  function handleProjectChange(projectId) {
+    setSelectedProjectId(projectId);
+  }
 
   useEffect(() => {
     if (!selectedProject?.ga4PropertyId) {
@@ -399,9 +410,12 @@ export function GoogleAnalyticsPage() {
         setError("");
 
         return fetch(
-          `/api/google-analytics/summary?propertyId=${encodeURIComponent(
-            selectedProject.ga4PropertyId
-          )}`,
+          `/api/google-analytics/summary?${new URLSearchParams({
+            propertyId: selectedProject.ga4PropertyId,
+            ...(range ? { range } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+          }).toString()}`,
           {
             cache: "no-store",
             signal: controller.signal,
@@ -438,7 +452,7 @@ export function GoogleAnalyticsPage() {
     return () => {
       controller.abort();
     };
-  }, [refreshKey, selectedProject]);
+  }, [endDate, range, refreshKey, selectedProject, startDate]);
 
   const metrics = [
     {
@@ -496,71 +510,36 @@ export function GoogleAnalyticsPage() {
       helper: "Countries returned in the selected report.",
     },
   ];
+  const compareHref = selectedProjectId
+    ? `/compare?projectId=${selectedProjectId}`
+    : "/compare";
 
   return (
     <DashboardLayout eyebrow="Google Analytics">
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-500">Analytics</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
               Google Analytics
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Select a project and view live GA4 traffic, sessions, page views,
-              events, country-wise sessions, and page title reports from the
-              linked property.
-            </p>
           </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
-                Project
-              </span>
-              <select
-                className="mt-2 h-11 min-w-64 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-zinc-400"
-                disabled={isLoadingProjects || analyticsProjects.length === 0}
-                onChange={(event) => setSelectedProjectId(event.target.value)}
-                value={selectedProjectId}
-              >
-                {analyticsProjects.length > 0 ? (
-                  analyticsProjects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No GA4 projects found</option>
-                )}
-              </select>
-            </label>
-            <Button
-              disabled={!selectedProject || isLoadingAnalytics}
-              onClick={() => setRefreshKey((current) => current + 1)}
-              variant="outline"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {isLoadingAnalytics ? "Loading..." : "Refresh"}
-            </Button>
-          </div>
+          <Link
+            className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-cyan-950 via-slate-900 to-zinc-950 px-5 text-sm font-semibold text-white shadow-xl shadow-cyan-950/10 transition-all hover:-translate-y-0.5 hover:shadow-2xl"
+            href={compareHref}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Monthly Compare
+          </Link>
         </div>
 
-        {selectedProject ? (
-          <Card>
-            <CardContent className="flex flex-col gap-2 p-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                Showing data for{" "}
-                <strong className="font-semibold text-zinc-950">
-                  {selectedProject.name}
-                </strong>
-              </span>
-              <span className="font-medium">
-                GA4 Property ID: {selectedProject.ga4PropertyId}
-              </span>
-            </CardContent>
-          </Card>
-        ) : null}
+        <ProjectWorkspaceControls
+          isLoadingProjects={isLoadingProjects}
+          metaLabel="GA4 Property ID"
+          metaValue={selectedProject?.ga4PropertyId}
+          onProjectChange={handleProjectChange}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+        />
 
         {error ? (
           <Card>
@@ -570,19 +549,42 @@ export function GoogleAnalyticsPage() {
           </Card>
         ) : null}
 
-        {!isLoadingProjects && analyticsProjects.length === 0 ? (
+        {!isLoadingProjects && projects.length === 0 ? (
           <Card>
             <CardContent className="p-10 text-center">
               <p className="text-base font-semibold text-zinc-950">
-                Add a GA4 Property ID to a project
+                Add a project
               </p>
               <p className="mt-2 text-sm text-zinc-500">
-                Projects with a GA4 Property ID will appear in this dropdown.
+                Create a client project before loading Google Analytics data.
+              </p>
+            </CardContent>
+          </Card>
+        ) : selectedProject && !selectedProject.ga4PropertyId ? (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <p className="text-base font-semibold text-zinc-950">
+                Add a GA4 Property ID
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                This project needs a GA4 Property ID before Analytics data can
+                be fetched.
               </p>
             </CardContent>
           </Card>
         ) : (
           <>
+            <div className="flex justify-end">
+              <Button
+                disabled={!selectedProject || isLoadingAnalytics}
+                onClick={() => setRefreshKey((current) => current + 1)}
+                variant="outline"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {isLoadingAnalytics ? "Loading..." : "Refresh"}
+              </Button>
+            </div>
+
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {metrics.map((metric) => (
                 <MetricCard key={metric.label} {...metric} />

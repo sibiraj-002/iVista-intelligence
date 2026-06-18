@@ -23,10 +23,10 @@ function getGoogleTagManagerConfig(accountIdOverride, containerIdOverride) {
   );
   const clientEmail =
     process.env.GOOGLE_TAG_MANAGER_CLIENT_EMAIL ||
-    process.env.GOOGLE_ANALYTICS_CLIENT_EMAIL;
+    process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL;
   const privateKey = (
     process.env.GOOGLE_TAG_MANAGER_PRIVATE_KEY ||
-    process.env.GOOGLE_ANALYTICS_PRIVATE_KEY ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ||
     ""
   ).replace(/\\n/g, "\n");
 
@@ -44,7 +44,7 @@ function getGoogleTagManagerConfig(accountIdOverride, containerIdOverride) {
 
   if (!clientEmail || !privateKey) {
     throw new Error(
-      "Missing GTM credentials. Set GOOGLE_TAG_MANAGER_CLIENT_EMAIL and GOOGLE_TAG_MANAGER_PRIVATE_KEY, or reuse the Google Analytics service-account env vars."
+      "Missing GTM credentials. Set GOOGLE_TAG_MANAGER_CLIENT_EMAIL and GOOGLE_TAG_MANAGER_PRIVATE_KEY, or reuse GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY."
     );
   }
 

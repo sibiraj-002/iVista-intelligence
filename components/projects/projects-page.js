@@ -75,10 +75,10 @@ function ProjectCard({ onDelete, project }) {
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              GTM Container
+              GA4 Property
             </p>
             <p className="mt-1 text-sm font-semibold text-zinc-950">
-              {project.gtmContainerId || "Not set"}
+              {project.ga4PropertyId || "Not set"}
             </p>
           </div>
         </div>
@@ -118,8 +118,6 @@ function ProjectsTable({ filteredProjects, onDelete }) {
             <TableHead>Google Ads ID</TableHead>
             <TableHead>GA4 Property ID</TableHead>
             <TableHead>Search Console</TableHead>
-            <TableHead>GTM Account</TableHead>
-            <TableHead>GTM Container</TableHead>
             <TableHead>Industry</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Action</TableHead>
@@ -145,8 +143,6 @@ function ProjectsTable({ filteredProjects, onDelete }) {
               <TableCell>{project.googleAdsCustomerId || "Not set"}</TableCell>
               <TableCell>{project.ga4PropertyId || "Not set"}</TableCell>
               <TableCell>{project.searchConsoleSiteUrl || "Not set"}</TableCell>
-              <TableCell>{project.gtmAccountId || "Not set"}</TableCell>
-              <TableCell>{project.gtmContainerId || "Not set"}</TableCell>
               <TableCell>{project.industry}</TableCell>
               <TableCell>
                 <StatusBadge status={project.status} />
