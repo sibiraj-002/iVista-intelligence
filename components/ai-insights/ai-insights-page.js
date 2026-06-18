@@ -1,175 +1,601 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight,
-  Gauge,
-  MessageSquareText,
-  SearchCheck,
-  TrendingDown,
+  BarChart3,
+  Bot,
+  CheckCircle2,
+  Download,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { getProjects } from "@/services/projects";
 import { cn } from "@/utils/cn";
 
-const recommendations = [
-  {
-    title: "Website traffic dropped 15%",
-    description:
-      "Organic traffic declined across high-intent landing pages. Review recent content changes, campaign pauses, crawl errors, and competitor movement before the next reporting cycle.",
-    priority: "High",
-    action: "Diagnose traffic drop",
-    icon: TrendingDown,
-  },
-  {
-    title: "Keyword rankings improved",
-    description:
-      "Several tracked keywords moved into stronger positions. Double down on the winning clusters with internal links, refreshed snippets, and conversion-focused page updates.",
-    priority: "Medium",
-    action: "Review keyword gains",
-    icon: SearchCheck,
-  },
-  {
-    title: "Page speed decreased",
-    description:
-      "Core pages are loading slower than the previous benchmark. Audit image payloads, third-party scripts, and server response time to protect rankings and conversions.",
-    priority: "High",
-    action: "Audit page speed",
-    icon: Gauge,
-  },
-];
-
-const priorityStyles = {
-  High: {
-    badge: "bg-red-50 text-red-700 ring-red-100",
-    icon: "bg-red-50 text-red-600",
-    border: "border-l-red-500",
-  },
-  Medium: {
-    badge: "bg-amber-50 text-amber-700 ring-amber-100",
-    icon: "bg-amber-50 text-amber-600",
-    border: "border-l-amber-500",
-  },
-  Low: {
-    badge: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    icon: "bg-emerald-50 text-emerald-600",
-    border: "border-l-emerald-500",
-  },
+const statusStyles = {
+  critical: "from-slate-950 via-slate-900 to-blue-950",
+  good: "from-slate-950 via-slate-900 to-teal-950",
+  needs_attention: "from-slate-950 via-slate-900 to-slate-800",
 };
 
-function RecommendationCard({ recommendation }) {
-  const styles = priorityStyles[recommendation.priority];
-  const Icon = recommendation.icon;
+const emptyAnalysis = {
+  comments: [],
+  issues: [],
+  pptSlides: [],
+  recommendations: [],
+  tableInsights: [],
+  wins: [],
+};
+
+function getReadiness(project, dataAvailability) {
+  return [
+    {
+      isReady: Boolean(project?.ga4PropertyId),
+      label: "GA4",
+      status: dataAvailability?.analytics,
+    },
+    {
+      isReady: Boolean(project?.searchConsoleSiteUrl),
+      label: "Search Console",
+      status: dataAvailability?.searchConsole,
+    },
+    {
+      isReady: Boolean(project?.googleAdsCustomerId),
+      label: "Google Ads",
+      status: dataAvailability?.googleAds,
+    },
+    {
+      isReady: true,
+      label: "PageSpeed",
+      status: dataAvailability?.pageSpeed,
+    },
+  ];
+}
+
+function ReadinessPill({ item }) {
+  const isAvailable = item.status
+    ? item.status === "fulfilled"
+    : item.isReady;
 
   return (
-    <Card
+    <span
       className={cn(
-        "border-l-4 transition-shadow hover:shadow-md",
-        styles.border
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+        isAvailable
+          ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+          : "border-zinc-200 bg-zinc-50 text-zinc-500"
       )}
     >
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex gap-3">
-            <div
-              className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
-                styles.icon
-              )}
-            >
-              <Icon className="h-5 w-5" />
+      {isAvailable ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : null}
+      {item.label}
+    </span>
+  );
+}
+
+function normalizeAnalysis(analysis) {
+  return {
+    ...emptyAnalysis,
+    ...(analysis || {}),
+    comments: Array.isArray(analysis?.comments) ? analysis.comments : [],
+    issues: Array.isArray(analysis?.issues) ? analysis.issues : [],
+    pptSlides: Array.isArray(analysis?.pptSlides) ? analysis.pptSlides : [],
+    recommendations: Array.isArray(analysis?.recommendations)
+      ? analysis.recommendations
+      : [],
+    tableInsights: Array.isArray(analysis?.tableInsights)
+      ? analysis.tableInsights
+      : [],
+    wins: Array.isArray(analysis?.wins) ? analysis.wins : [],
+  };
+}
+
+const insightTitles = {
+  aiTrafficSources: "AI Traffic Sources",
+  deviceWiseTraffic: "Device Wise Traffic",
+  mostVisitedNewsPages: "News Pages",
+  mostVisitedPages: "Most Visited Pages",
+  newVsReturning: "New vs Returning",
+  overallTraffic: "Overall Traffic",
+  sourceWiseTraffic: "Source Wise Traffic",
+};
+
+function formatTableNumber(row, monthKey) {
+  const value = row.values?.[monthKey] || 0;
+
+  if (row.valueType === "duration") {
+    const roundedValue = Math.round(value || 0);
+    const minutes = Math.floor(roundedValue / 60);
+    const seconds = roundedValue % 60;
+
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function getLatestRowValue(rows, label, latestMonthKey) {
+  const row = rows.find((item) => item.label === label);
+
+  if (!row || !latestMonthKey) {
+    return "--";
+  }
+
+  return formatTableNumber(row, latestMonthKey);
+}
+
+function ExecutiveMetricCard({ label, value }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InsightCard({ insight, index }) {
+  return (
+    <div className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="border-b border-slate-100 bg-slate-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <BarChart3 className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle>{recommendation.title}</CardTitle>
-              <CardDescription>
-                AI-generated recommendation from recent performance signals.
-              </CardDescription>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Signal {index + 1}
+              </p>
+              <h3 className="text-base font-semibold text-slate-950">
+                {insight.title ||
+                  insightTitles[insight.reportKey] ||
+                  "Monthly Signal"}
+              </h3>
             </div>
           </div>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
-              styles.badge
-            )}
-          >
-            {recommendation.priority}
+          <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+            AI
           </span>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-2xl bg-zinc-50 p-4">
-          <div className="flex gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-zinc-950 shadow-sm">
-              <MessageSquareText className="h-4 w-4" />
-            </div>
-            <p className="text-sm leading-6 text-zinc-600">
-              {recommendation.description}
-            </p>
-          </div>
+      </div>
+      <div className="grid gap-3 p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Comment
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {insight.comment || "Generate a fresh report to see AI analysis."}
+          </p>
         </div>
-        <Button className="mt-5 w-full sm:w-auto">
-          {recommendation.action}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </CardContent>
-    </Card>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+            Recommendation
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {insight.recommendation ||
+              "AI recommendation will appear after report generation."}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function AIInsightsPage() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
+  const range = searchParams.get("range") || "this_month";
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const selectedProject = useMemo(
+    () =>
+      projects.find((project) => project.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
+  );
+  const analysis = normalizeAnalysis(analysisResult?.analysis);
+  const monthlyComparison = analysisResult?.sourceSummary?.monthlyComparison || {};
+  const monthColumns = monthlyComparison.monthColumns || [];
+  const monthlyReports = monthlyComparison.reports || {};
+  const latestMonthKey = monthColumns.at(-1)?.key;
+  const visibleInsights = analysis.tableInsights.length
+    ? analysis.tableInsights
+    : analysis.comments.map((comment, index) => ({
+        comment: comment.detail,
+        recommendation: analysis.recommendations[index]?.action,
+        title: comment.title,
+      }));
+  const executiveMetrics = [
+    {
+      label: "Months Compared",
+      value: monthColumns.length || "--",
+    },
+    {
+      label: "Latest Sessions",
+      value: getLatestRowValue(
+        monthlyReports.overallTraffic || [],
+        "Sessions",
+        latestMonthKey
+      ),
+    },
+    {
+      label: "Latest Pageviews",
+      value: getLatestRowValue(
+        monthlyReports.overallTraffic || [],
+        "Pageviews",
+        latestMonthKey
+      ),
+    },
+    {
+      label: "Recommendations",
+      value: analysis.recommendations.length || "--",
+    },
+  ];
+  const readiness = getReadiness(
+    selectedProject,
+    analysisResult?.dataAvailability
+  );
+  const status = analysis.status || "needs_attention";
+
+  useEffect(() => {
+    let isActive = true;
+
+    Promise.resolve()
+      .then(() => getProjects())
+      .then((data) => {
+        if (!isActive) {
+          return;
+        }
+
+        const selectedProject =
+          data.find((project) => project.id === projectIdParam) ||
+          data[0];
+
+        setProjects(data);
+        setSelectedProjectId(selectedProject?.id || "");
+        setError("");
+      })
+      .catch((loadError) => {
+        console.error("AI insights projects load error:", loadError);
+
+        if (isActive) {
+          setError(loadError.message);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingProjects(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [projectIdParam]);
+
+  function handleProjectChange(projectId) {
+    setSelectedProjectId(projectId);
+    setAnalysisResult(null);
+  }
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    Promise.resolve()
+      .then(() => {
+        setIsLoadingReport(true);
+
+        return fetch(
+          `/api/ai-insights?${new URLSearchParams({
+            projectId: selectedProjectId,
+          }).toString()}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+      })
+      .then(async (response) => {
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to load saved AI report.");
+        }
+
+        return data.report;
+      })
+      .then((report) => {
+        setAnalysisResult(report || null);
+      })
+      .catch((loadError) => {
+        if (loadError.name === "AbortError") {
+          return;
+        }
+
+        console.error("Saved AI insights load error:", loadError);
+        setError(loadError.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoadingReport(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedProjectId]);
+
+  async function generateAnalysis() {
+    if (!selectedProjectId) {
+      setError("Select a project before generating AI analysis.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/ai-insights", {
+        body: JSON.stringify({
+          endDate,
+          projectId: selectedProjectId,
+          range,
+          startDate,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to generate AI analysis.");
+      }
+
+      setAnalysisResult(data);
+    } catch (generateError) {
+      console.error("AI insights generation error:", generateError);
+      setError(generateError.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function downloadPpt() {
+    if (!selectedProjectId || !analysisResult) {
+      setError("Generate an AI report before downloading PPT.");
+      return;
+    }
+
+    setIsDownloading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/ai-insights/ppt?${new URLSearchParams({
+          projectId: selectedProjectId,
+        }).toString()}`
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Unable to download PPT report.");
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const filename =
+        contentDisposition?.match(/filename="([^"]+)"/)?.[1] ||
+        "ai-analysis-report.pptx";
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      console.error("AI insights PPT download error:", downloadError);
+      setError(downloadError.message);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   return (
     <DashboardLayout eyebrow="AI Insights">
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-500">
-              Recommendations
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
+              AI report builder
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-              AI Insights
+              Monthly compare intelligence
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Prioritized recommendations for traffic, rankings, and technical
-              performance, designed for fast decision-making.
+              Convert the last 3 months GA4 comparison data into visual AI
+              signals, action cards, and a presentation-ready PPT.
             </p>
           </div>
-          <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
-            3 active recommendations
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="rounded-full bg-slate-950 px-5 hover:bg-slate-800"
+              disabled={isGenerating || isLoadingProjects || !selectedProjectId}
+              onClick={generateAnalysis}
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {analysisResult ? "Regenerate Report" : "Generate Report"}
+            </Button>
+            <Button
+              className="rounded-full"
+              disabled={!analysisResult || isDownloading}
+              onClick={downloadPpt}
+              variant="outline"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download PPT
+            </Button>
           </div>
         </div>
 
-        <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <div className="rounded-2xl bg-zinc-950 p-5 text-white">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-zinc-400">
-                  AI summary
-                </p>
-                <h2 className="mt-2 text-xl font-semibold tracking-tight">
-                  Traffic needs attention, rankings show upside, speed is a
-                  conversion risk.
+        <ProjectWorkspaceControls
+          isLoadingProjects={isLoadingProjects}
+          metaLabel="AI model"
+          metaValue="Gemini 2.5 Flash"
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onProjectChange={handleProjectChange}
+        />
+
+        {error ? (
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            {error}
+          </div>
+        ) : null}
+
+        {isLoadingReport ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+            Loading saved AI report...
+          </div>
+        ) : null}
+
+        <section className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm">
+          <div
+            className={cn(
+              "relative overflow-hidden bg-linear-to-r p-7 text-white",
+              statusStyles[status] || statusStyles.needs_attention
+            )}
+          >
+            <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
+            <div className="absolute right-36 top-14 h-32 w-32 rounded-full bg-blue-300/10 blur-xl" />
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                  <Bot className="h-3.5 w-3.5" />
+                  Last 3 months monthly comparison
+                </div>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight">
+                  Monthly performance pulse
                 </h2>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                    {analysis.status || "not generated"}
+                  </span>
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                    {visibleInsights.length || 0} AI signals
+                  </span>
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                    PPT ready
+                  </span>
+                </div>
+                {analysisResult?.generatedAt ? (
+                  <p className="mt-3 text-sm font-medium text-white/75">
+                    Saved report from{" "}
+                    {new Date(analysisResult.generatedAt).toLocaleString()}
+                  </p>
+                ) : null}
               </div>
-              <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-200">
-                Updated just now
-              </span>
+              <div className="relative rounded-3xl border border-white/20 bg-white/15 p-5 text-center backdrop-blur">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                  Health Score
+                </p>
+                <p className="mt-2 text-5xl font-semibold">
+                  {analysis.healthScore ?? "--"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 bg-slate-50 p-5 lg:grid-cols-4">
+            {executiveMetrics.map((metric) => (
+              <ExecutiveMetricCard key={metric.label} {...metric} />
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-4xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
+                Data readiness
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+                Connected report sources
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {readiness.map((item) => (
+                <ReadinessPill item={item} key={item.label} />
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4">
-          {recommendations.map((recommendation) => (
-            <RecommendationCard
-              key={recommendation.title}
-              recommendation={recommendation}
-            />
-          ))}
+        <section className="space-y-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
+              AI insight board
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              What the data is telling us
+            </h2>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {visibleInsights.length ? (
+              visibleInsights.map((insight, index) => (
+                <InsightCard
+                  index={index}
+                  insight={insight}
+                  key={`${insight.reportKey || insight.title}-${index}`}
+                />
+              ))
+            ) : (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+                <Sparkles className="mx-auto h-8 w-8 text-blue-600" />
+                <p className="mt-4 text-sm font-semibold text-slate-700">
+                  Generate a report to create AI insight cards.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
+
       </div>
     </DashboardLayout>
   );

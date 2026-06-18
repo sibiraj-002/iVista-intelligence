@@ -1,5 +1,11 @@
 import { google } from "googleapis";
 
+import {
+  getComparisonDateRanges,
+  getPercentChange,
+  resolveDateRange,
+} from "@/utils/date-range";
+
 const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 const countryDisplayNames = new Intl.DisplayNames(["en"], { type: "region" });
 const ISO_ALPHA3_TO_ALPHA2 = {
@@ -258,18 +264,17 @@ function getDateString(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function getSearchConsoleDateRange() {
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() - 2);
+function getSearchConsoleDateRange(dateRangeOverride = {}) {
+  if (dateRangeOverride.startDate && dateRangeOverride.endDate) {
+    return dateRangeOverride;
+  }
 
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 27);
-
-  return {
-    startDate:
-      process.env.GOOGLE_SEARCH_CONSOLE_START_DATE || getDateString(startDate),
-    endDate: process.env.GOOGLE_SEARCH_CONSOLE_END_DATE || getDateString(endDate),
-  };
+  return resolveDateRange({
+    endDate: process.env.GOOGLE_SEARCH_CONSOLE_END_DATE,
+    endOffsetDays: 2,
+    range: dateRangeOverride.range,
+    startDate: process.env.GOOGLE_SEARCH_CONSOLE_START_DATE,
+  });
 }
 
 function getSearchConsoleConfig(siteUrlOverride) {
@@ -277,10 +282,10 @@ function getSearchConsoleConfig(siteUrlOverride) {
     siteUrlOverride || process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL || "";
   const clientEmail =
     process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL ||
-    process.env.GOOGLE_ANALYTICS_CLIENT_EMAIL;
+    process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL;
   const privateKey = (
     process.env.GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY ||
-    process.env.GOOGLE_ANALYTICS_PRIVATE_KEY ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ||
     ""
   ).replace(/\\n/g, "\n");
 
@@ -292,7 +297,7 @@ function getSearchConsoleConfig(siteUrlOverride) {
 
   if (!clientEmail || !privateKey) {
     throw new Error(
-      "Missing Search Console credentials. Set GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL and GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY, or reuse the Google Analytics service-account env vars."
+      "Missing Search Console credentials. Set GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL and GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY, or reuse GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY."
     );
   }
 
@@ -383,23 +388,47 @@ function summarizeOverview(rows) {
   );
 
   return {
+    averagePosition:
+      totals.impressions > 0 ? totals.weightedPosition / totals.impressions : 0,
     clicks: totals.clicks,
     impressions: totals.impressions,
     ctr: totals.impressions > 0 ? totals.clicks / totals.impressions : 0,
-    averagePosition:
+    position:
       totals.impressions > 0 ? totals.weightedPosition / totals.impressions : 0,
   };
 }
 
-export async function getSearchConsoleDashboard(siteUrlOverride) {
+function getOverviewComparison(current, previous, twoPeriodsAgo) {
+  return Object.fromEntries(
+    ["clicks", "impressions", "ctr", "position"].map((key) => [
+      key,
+      {
+        changeFromPrevious: getPercentChange(current[key], previous[key]),
+        current: current[key],
+        previous: previous[key],
+        twoPeriodsAgo: twoPeriodsAgo[key],
+      },
+    ])
+  );
+}
+
+export async function getSearchConsoleDashboard(
+  siteUrlOverride,
+  dateRangeOverride
+) {
   const { siteUrl } = getSearchConsoleConfig(siteUrlOverride);
   const searchConsole = createSearchConsoleClient(siteUrlOverride);
-  const dateRange = getSearchConsoleDateRange();
+  const dateRange = getSearchConsoleDateRange(dateRangeOverride);
+  const comparisonDateRanges = getComparisonDateRanges(dateRange);
 
-  async function runSearchAnalyticsQuery(dimensions = [], rowLimit = 25) {
+  async function runSearchAnalyticsQuery(
+    dimensions = [],
+    rowLimit = 25,
+    queryDateRange = dateRange
+  ) {
     const response = await searchConsole.searchanalytics.query({
       requestBody: {
-        ...dateRange,
+        ...queryDateRange,
         dimensions,
         rowLimit,
       },
@@ -409,9 +438,20 @@ export async function getSearchConsoleDashboard(siteUrlOverride) {
     return response.data.rows || [];
   }
 
-  const [overviewRows, trendRows, queryRows, pageRows, countryRows, deviceRows] =
+  const [
+    overviewRows,
+    previousOverviewRows,
+    twoPeriodsAgoOverviewRows,
+    trendRows,
+    queryRows,
+    pageRows,
+    countryRows,
+    deviceRows,
+  ] =
     await Promise.all([
       runSearchAnalyticsQuery([], 1),
+      runSearchAnalyticsQuery([], 1, comparisonDateRanges.previous),
+      runSearchAnalyticsQuery([], 1, comparisonDateRanges.twoPeriodsAgo),
       runSearchAnalyticsQuery(["date"], 90),
       runSearchAnalyticsQuery(["query"], 25),
       runSearchAnalyticsQuery(["page"], 25),
@@ -422,8 +462,22 @@ export async function getSearchConsoleDashboard(siteUrlOverride) {
   const overview = overviewRows[0]
     ? normalizeRow(overviewRows[0])
     : summarizeOverview(trendRows);
+  const previousOverview = previousOverviewRows[0]
+    ? normalizeRow(previousOverviewRows[0])
+    : summarizeOverview([]);
+  const twoPeriodsAgoOverview = twoPeriodsAgoOverviewRows[0]
+    ? normalizeRow(twoPeriodsAgoOverviewRows[0])
+    : summarizeOverview([]);
 
   return {
+    comparison: {
+      dateRanges: comparisonDateRanges,
+      overview: getOverviewComparison(
+        overview,
+        previousOverview,
+        twoPeriodsAgoOverview
+      ),
+    },
     dateRange,
     overview,
     siteUrl,

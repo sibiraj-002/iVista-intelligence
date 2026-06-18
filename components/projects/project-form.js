@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +18,6 @@ const defaultValues = {
   googleAdsCustomerId: "",
   ga4PropertyId: "",
   searchConsoleSiteUrl: "",
-  gtmAccountId: "",
-  gtmContainerId: "",
   industry: "",
   status: "Active",
 };
@@ -51,18 +50,20 @@ export function ProjectForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="overflow-hidden border-zinc-100 bg-white shadow-lg shadow-zinc-950/5">
+      <CardHeader className="bg-linear-to-r from-cyan-50 via-white to-violet-50 p-4">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardDescription className="mt-1 text-xs leading-5">{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4">
         <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Name</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Name
+              </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) => updateField("name", event.target.value)}
                 placeholder="iVistaz Digital"
                 required
@@ -71,9 +72,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Website</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Website
+              </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) => updateField("website", event.target.value)}
                 placeholder="https://example.com"
                 required
@@ -83,11 +86,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Google Ads Customer ID
               </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) =>
                   updateField("googleAdsCustomerId", event.target.value)
                 }
@@ -97,11 +100,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 GA4 Property ID
               </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) =>
                   updateField("ga4PropertyId", event.target.value)
                 }
@@ -111,11 +114,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Search Console Site URL
               </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) =>
                   updateField("searchConsoleSiteUrl", event.target.value)
                 }
@@ -125,39 +128,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
-                GTM Account ID
-              </span>
-              <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
-                onChange={(event) =>
-                  updateField("gtmAccountId", event.target.value)
-                }
-                placeholder="Optional when using GTM-XXXX"
-                value={formData.gtmAccountId}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
-                GTM Container ID
-              </span>
-              <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
-                onChange={(event) =>
-                  updateField("gtmContainerId", event.target.value)
-                }
-                placeholder="GTM-P5CT7B7F or 987654321"
-                value={formData.gtmContainerId}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Industry
               </span>
               <input
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all placeholder:text-zinc-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) => updateField("industry", event.target.value)}
                 placeholder="Performance Marketing"
                 required
@@ -166,9 +141,11 @@ export function ProjectForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Status</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Status
+              </span>
               <select
-                className="mt-2 h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-zinc-400"
+                className="mt-1.5 h-10 w-full rounded-xl border border-zinc-200 bg-linear-to-r from-white to-zinc-50 px-3 text-sm font-medium outline-none transition-all focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 onChange={(event) => updateField("status", event.target.value)}
                 value={formData.status}
               >
@@ -181,8 +158,13 @@ export function ProjectForm({
             </label>
           </div>
 
-          <div className="flex justify-end">
-            <Button disabled={isSubmitting} type="submit">
+          <div className="flex justify-end border-t border-zinc-100 pt-3">
+            <Button
+              className="rounded-xl bg-linear-to-r from-cyan-950 to-zinc-950 px-5 shadow-lg shadow-cyan-950/10 hover:from-cyan-900 hover:to-zinc-900"
+              disabled={isSubmitting}
+              type="submit"
+            >
+              <Save className="h-4 w-4" />
               {isSubmitting ? "Saving..." : submitLabel}
             </Button>
           </div>

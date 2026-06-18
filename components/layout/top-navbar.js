@@ -1,14 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { Bell, LogOut, Menu, Search } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { getProjects } from "@/services/projects";
 
 export function TopNavbar({ onOpenSidebar, eyebrow = "Workspace" }) {
   const { logout, user, userProfile } = useAuth();
   const router = useRouter();
+  const [projects, setProjects] = useState([]);
+  const [query, setQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const displayName = userProfile?.name || user?.displayName || user?.email || "Team";
   const initials =
     displayName
@@ -18,9 +23,65 @@ export function TopNavbar({ onOpenSidebar, eyebrow = "Workspace" }) {
       .slice(0, 2)
       .toUpperCase() || "IV";
 
+  const filteredProjects = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    return projects
+      .filter((project) =>
+        [project.name, project.website, project.industry]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedQuery))
+      )
+      .slice(0, 6);
+  }, [projects, query]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    Promise.resolve()
+      .then(() => getProjects())
+      .then((data) => {
+        if (isActive) {
+          setProjects(data);
+        }
+      })
+      .catch((error) => {
+        console.error("Header projects search load error:", error);
+      });
+
+    function handleProjectsChange() {
+      getProjects()
+        .then((data) => setProjects(data))
+        .catch((error) => {
+          console.error("Header projects search refresh error:", error);
+        });
+    }
+
+    window.addEventListener("projects-change", handleProjectsChange);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener("projects-change", handleProjectsChange);
+    };
+  }, []);
+
   async function handleLogout() {
     await logout();
     router.replace("/login");
+  }
+
+  function openProject(projectId) {
+    const params = new URLSearchParams(window.location.search);
+
+    params.set("projectId", projectId);
+    window.localStorage.setItem("selectedProjectId", projectId);
+    setQuery("");
+    setIsSearchFocused(false);
+    router.push(`/seo?${params.toString()}`);
   }
 
   return (
@@ -45,9 +106,47 @@ export function TopNavbar({ onOpenSidebar, eyebrow = "Workspace" }) {
         </div>
       </div>
 
-      <div className="hidden w-full max-w-sm items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 md:flex">
-        <Search className="h-4 w-4" />
-        <span>Search projects, reports, keywords...</span>
+      <div className="relative hidden w-full max-w-sm md:block">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500">
+          <Search className="h-4 w-4" />
+          <input
+            className="w-full bg-transparent text-sm text-zinc-700 outline-none placeholder:text-zinc-400"
+            onBlur={() => {
+              window.setTimeout(() => setIsSearchFocused(false), 150);
+            }}
+            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            placeholder="Search clients..."
+            value={query}
+          />
+        </div>
+
+        {isSearchFocused && query.trim() ? (
+          <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl">
+            {filteredProjects.length > 0 ? (
+              filteredProjects.map((project) => (
+                <button
+                  className="block w-full px-4 py-3 text-left text-sm transition-colors hover:bg-zinc-50"
+                  key={project.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => openProject(project.id)}
+                  type="button"
+                >
+                  <span className="block font-semibold text-zinc-950">
+                    {project.name}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                    {project.website || project.industry || "Client project"}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-sm text-zinc-500">
+                No clients found
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2">

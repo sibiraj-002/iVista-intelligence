@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
@@ -22,6 +23,7 @@ import {
 } from "recharts";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -115,7 +117,9 @@ function MetricCard({ icon: Icon, label, value, helper }) {
         <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
           {value}
         </p>
-        <p className="mt-2 text-sm text-zinc-500">{helper}</p>
+        <div className="mt-2">
+          <p className="text-sm text-zinc-500">{helper}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -260,6 +264,11 @@ function PerformanceTable({ emptyMessage, labelKey, labelTitle, rows, title }) {
 }
 
 export function GoogleSearchConsolePage() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
+  const range = searchParams.get("range") || "this_month";
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [searchConsole, setSearchConsole] = useState(emptySearchConsole);
@@ -268,17 +277,10 @@ export function GoogleSearchConsolePage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
-  const searchConsoleProjects = useMemo(
-    () => projects.filter((project) => getProjectSearchConsoleSiteUrl(project)),
-    [projects]
-  );
-
   const selectedProject = useMemo(
     () =>
-      searchConsoleProjects.find(
-        (project) => project.id === selectedProjectId
-      ) || null,
-    [searchConsoleProjects, selectedProjectId]
+      projects.find((project) => project.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
   );
   const selectedSiteUrl = selectedProject
     ? getProjectSearchConsoleSiteUrl(selectedProject)
@@ -293,11 +295,13 @@ export function GoogleSearchConsolePage() {
           return;
         }
 
+        const selectedProject =
+          data.find((project) => project.id === projectIdParam) ||
+          data.find((project) => getProjectSearchConsoleSiteUrl(project)) ||
+          data[0];
+
         setProjects(data);
-        setSelectedProjectId(
-          data.find((project) => getProjectSearchConsoleSiteUrl(project))?.id ||
-            ""
-        );
+        setSelectedProjectId(selectedProject?.id || "");
         setError("");
       })
       .catch((loadError) => {
@@ -316,7 +320,11 @@ export function GoogleSearchConsolePage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [projectIdParam]);
+
+  function handleProjectChange(projectId) {
+    setSelectedProjectId(projectId);
+  }
 
   useEffect(() => {
     if (!selectedSiteUrl) {
@@ -331,9 +339,12 @@ export function GoogleSearchConsolePage() {
         setError("");
 
         return fetch(
-          `/api/google-search-console/summary?siteUrl=${encodeURIComponent(
-            selectedSiteUrl
-          )}`,
+          `/api/google-search-console/summary?${new URLSearchParams({
+            siteUrl: selectedSiteUrl,
+            ...(range ? { range } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+          }).toString()}`,
           {
             cache: "no-store",
             signal: controller.signal,
@@ -372,7 +383,7 @@ export function GoogleSearchConsolePage() {
     return () => {
       controller.abort();
     };
-  }, [refreshKey, selectedSiteUrl]);
+  }, [endDate, range, refreshKey, selectedSiteUrl, startDate]);
 
   const averagePosition =
     searchConsole.overview.averagePosition || searchConsole.overview.position;
@@ -421,67 +432,20 @@ export function GoogleSearchConsolePage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-500">SEO</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
               Google Search Console
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Select a project and review live organic search clicks,
-              impressions, CTR, ranking position, query performance, landing
-              pages, countries, and devices.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="block">
-              <span className="text-sm font-medium text-zinc-700">
-                Project
-              </span>
-              <select
-                className="mt-2 h-11 min-w-64 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition-colors focus:border-zinc-400"
-                disabled={
-                  isLoadingProjects || searchConsoleProjects.length === 0
-                }
-                onChange={(event) => setSelectedProjectId(event.target.value)}
-                value={selectedProjectId}
-              >
-                {searchConsoleProjects.length > 0 ? (
-                  searchConsoleProjects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No Search Console projects found</option>
-                )}
-              </select>
-            </label>
-            <Button
-              disabled={!selectedProject || isLoadingSearchConsole}
-              onClick={() => setRefreshKey((current) => current + 1)}
-              variant="outline"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {isLoadingSearchConsole ? "Loading..." : "Refresh"}
-            </Button>
           </div>
         </div>
 
-        {selectedProject ? (
-          <Card>
-            <CardContent className="flex flex-col gap-2 p-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                Showing data for{" "}
-                <strong className="font-semibold text-zinc-950">
-                  {selectedProject.name}
-                </strong>
-              </span>
-              <span className="font-medium">
-                Property: {selectedSiteUrl}
-              </span>
-            </CardContent>
-          </Card>
-        ) : null}
+        <ProjectWorkspaceControls
+          isLoadingProjects={isLoadingProjects}
+          metaLabel="Property"
+          metaValue={selectedSiteUrl}
+          onProjectChange={handleProjectChange}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+        />
 
         {error ? (
           <Card>
@@ -491,20 +455,41 @@ export function GoogleSearchConsolePage() {
           </Card>
         ) : null}
 
-        {!isLoadingProjects && searchConsoleProjects.length === 0 ? (
+        {!isLoadingProjects && projects.length === 0 ? (
           <Card>
             <CardContent className="p-10 text-center">
               <p className="text-base font-semibold text-zinc-950">
-                Add a Search Console Site URL to a project
+                Add a project
               </p>
               <p className="mt-2 text-sm text-zinc-500">
-                Projects with a Search Console property URL or website will
-                appear in this dropdown.
+                Create a client project before loading Search Console data.
+              </p>
+            </CardContent>
+          </Card>
+        ) : selectedProject && !selectedSiteUrl ? (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <p className="text-base font-semibold text-zinc-950">
+                Add a Search Console property
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                This project needs a Search Console Site URL or valid website.
               </p>
             </CardContent>
           </Card>
         ) : (
           <>
+            <div className="flex justify-end">
+              <Button
+                disabled={!selectedProject || isLoadingSearchConsole}
+                onClick={() => setRefreshKey((current) => current + 1)}
+                variant="outline"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {isLoadingSearchConsole ? "Loading..." : "Refresh"}
+              </Button>
+            </div>
+
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {metrics.map((metric) => (
                 <MetricCard key={metric.label} {...metric} />

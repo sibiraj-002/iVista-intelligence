@@ -1,5 +1,11 @@
 import { GoogleAdsApi } from "google-ads-api";
 
+import {
+  getComparisonDateRanges,
+  getPercentChange,
+  resolveDateRange,
+} from "@/utils/date-range";
+
 const MICROS = 1_000_000;
 
 function cleanCustomerId(customerId) {
@@ -29,11 +35,10 @@ function getGoogleAdsConfig() {
     developerToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
     refreshToken: process.env.GOOGLE_ADS_REFRESH_TOKEN,
     managerCustomerId: cleanCustomerId(process.env.GOOGLE_ADS_MANAGER_CUSTOMER_ID),
-    dateRange: process.env.GOOGLE_ADS_DATE_RANGE || "LAST_30_DAYS",
   };
 
   const missingKeys = Object.entries(config)
-    .filter(([key, value]) => key !== "dateRange" && !value)
+    .filter(([, value]) => !value)
     .map(([key]) => key);
 
   if (missingKeys.length > 0) {
@@ -84,6 +89,14 @@ function formatDateForLabel(date) {
   }).format(new Date(`${date}T00:00:00`));
 }
 
+function getGoogleAdsDateCondition(dateRangeOverride = {}) {
+  const dateRange = dateRangeOverride.startDate
+    ? dateRangeOverride
+    : resolveDateRange(dateRangeOverride);
+
+  return `segments.date BETWEEN '${dateRange.startDate}' AND '${dateRange.endDate}'`;
+}
+
 async function getManagedAccounts(client) {
   const managerCustomer = createManagerCustomer(client);
   const rows = await managerCustomer.query(`
@@ -108,8 +121,7 @@ async function getManagedAccounts(client) {
   }));
 }
 
-async function getAccountMetrics(client, account) {
-  const { dateRange } = getGoogleAdsConfig();
+async function getAccountMetrics(client, account, dateCondition) {
   const customer = createCustomer(client, account.customerId);
   const rows = await customer.query(`
     SELECT
@@ -121,7 +133,7 @@ async function getAccountMetrics(client, account) {
       metrics.impressions,
       metrics.conversions
     FROM customer
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateCondition}
   `);
   const row = rows[0] || {};
   const clicks = toNumber(row.metrics?.clicks);
@@ -142,8 +154,7 @@ async function getAccountMetrics(client, account) {
   };
 }
 
-async function getCampaignMetrics(client, account) {
-  const { dateRange } = getGoogleAdsConfig();
+async function getCampaignMetrics(client, account, dateCondition) {
   const customer = createCustomer(client, account.customerId);
   const rows = await customer.query(`
     SELECT
@@ -155,7 +166,7 @@ async function getCampaignMetrics(client, account) {
       metrics.impressions,
       metrics.conversions
     FROM campaign
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateCondition}
       AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 50
@@ -180,8 +191,7 @@ async function getCampaignMetrics(client, account) {
   });
 }
 
-async function getTrendMetrics(client, account) {
-  const { dateRange } = getGoogleAdsConfig();
+async function getTrendMetrics(client, account, dateCondition) {
   const customer = createCustomer(client, account.customerId);
   const rows = await customer.query(`
     SELECT
@@ -191,7 +201,7 @@ async function getTrendMetrics(client, account) {
       metrics.impressions,
       metrics.conversions
     FROM customer
-    WHERE segments.date DURING ${dateRange}
+    WHERE ${dateCondition}
     ORDER BY segments.date ASC
   `);
 
@@ -230,6 +240,20 @@ function aggregateOverview(accounts) {
   };
 }
 
+function getOverviewComparison(current, previous, twoPeriodsAgo) {
+  return Object.fromEntries(
+    Object.keys(current).map((key) => [
+      key,
+      {
+        changeFromPrevious: getPercentChange(current[key], previous[key]),
+        current: current[key],
+        previous: previous[key],
+        twoPeriodsAgo: twoPeriodsAgo[key],
+      },
+    ])
+  );
+}
+
 function aggregateTrend(rows) {
   const byDate = new Map();
 
@@ -256,20 +280,56 @@ function aggregateTrend(rows) {
   );
 }
 
-export async function getMccGoogleAdsDashboard() {
+export async function getMccGoogleAdsDashboard(
+  customerIdOverride,
+  dateRangeOverride
+) {
   const client = createGoogleAdsClient();
-  const accounts = await getManagedAccounts(client);
+  const dateRange = resolveDateRange(dateRangeOverride);
+  const comparisonDateRanges = getComparisonDateRanges(dateRange);
+  const dateCondition = getGoogleAdsDateCondition(comparisonDateRanges.current);
+  const previousDateCondition = getGoogleAdsDateCondition(
+    comparisonDateRanges.previous
+  );
+  const twoPeriodsAgoDateCondition = getGoogleAdsDateCondition(
+    comparisonDateRanges.twoPeriodsAgo
+  );
+  const accounts = customerIdOverride
+    ? [
+        {
+          customerId: cleanCustomerId(customerIdOverride),
+          name: `Customer ${customerIdOverride}`,
+          status: "UNKNOWN",
+        },
+      ]
+    : await getManagedAccounts(client);
   const accountResults = await Promise.allSettled(
-    accounts.map((account) => getAccountMetrics(client, account))
+    accounts.map((account) => getAccountMetrics(client, account, dateCondition))
+  );
+  const previousAccountResults = await Promise.allSettled(
+    accounts.map((account) =>
+      getAccountMetrics(client, account, previousDateCondition)
+    )
+  );
+  const twoPeriodsAgoAccountResults = await Promise.allSettled(
+    accounts.map((account) =>
+      getAccountMetrics(client, account, twoPeriodsAgoDateCondition)
+    )
   );
   const campaignResults = await Promise.allSettled(
-    accounts.map((account) => getCampaignMetrics(client, account))
+    accounts.map((account) => getCampaignMetrics(client, account, dateCondition))
   );
   const trendResults = await Promise.allSettled(
-    accounts.map((account) => getTrendMetrics(client, account))
+    accounts.map((account) => getTrendMetrics(client, account, dateCondition))
   );
 
   const accountMetrics = accountResults
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+  const previousAccountMetrics = previousAccountResults
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+  const twoPeriodsAgoAccountMetrics = twoPeriodsAgoAccountResults
     .filter((result) => result.status === "fulfilled")
     .map((result) => result.value);
   const campaigns = campaignResults
@@ -280,8 +340,20 @@ export async function getMccGoogleAdsDashboard() {
     .filter((result) => result.status === "fulfilled")
     .flatMap((result) => result.value);
 
+  const overview = aggregateOverview(accountMetrics);
+  const previousOverview = aggregateOverview(previousAccountMetrics);
+  const twoPeriodsAgoOverview = aggregateOverview(twoPeriodsAgoAccountMetrics);
+
   return {
-    overview: aggregateOverview(accountMetrics),
+    comparison: {
+      dateRanges: comparisonDateRanges,
+      overview: getOverviewComparison(
+        overview,
+        previousOverview,
+        twoPeriodsAgoOverview
+      ),
+    },
+    overview,
     accounts: accountMetrics,
     campaigns,
     trend: aggregateTrend(trendRows),

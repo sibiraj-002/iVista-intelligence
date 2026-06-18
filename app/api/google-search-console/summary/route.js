@@ -8,9 +8,16 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const siteUrl = searchParams.get("siteUrl");
+  const range = searchParams.get("range") || "this_month";
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
 
   try {
-    const data = await getSearchConsoleDashboard(siteUrl);
+    const data = await getSearchConsoleDashboard(siteUrl, {
+      endDate,
+      range,
+      startDate,
+    });
 
     return NextResponse.json(data);
   } catch (error) {

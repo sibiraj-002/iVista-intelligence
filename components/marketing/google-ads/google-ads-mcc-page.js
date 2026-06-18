@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   Eye,
@@ -12,6 +13,7 @@ import {
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { MccTrendChart } from "@/components/marketing/google-ads/mcc-trend-chart";
+import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
 import {
   Card,
   CardContent,
@@ -27,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getProjects } from "@/services/projects";
 import { cn } from "@/utils/cn";
 
 const emptyDashboard = {
@@ -111,7 +114,9 @@ function KpiCard({ icon: Icon, label, value, helper }) {
         <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
           {value}
         </p>
-        <p className="mt-2 text-sm text-zinc-500">{helper}</p>
+        <div className="mt-2">
+          <p className="text-sm text-zinc-500">{helper}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -209,16 +214,89 @@ function CampaignTable({ campaigns }) {
 }
 
 export function GoogleAdsMccPage() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
+  const range = searchParams.get("range") || "this_month";
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
+  );
+  const selectedCustomerId = selectedProject?.googleAdsCustomerId || "";
 
   useEffect(() => {
     let isActive = true;
 
-    fetch("/api/google-ads/mcc", {
-      cache: "no-store",
-    })
+    getProjects()
+      .then((data) => {
+        if (!isActive) {
+          return;
+        }
+
+        const selectedProject =
+          data.find((project) => project.id === projectIdParam) ||
+          data.find((project) => project.googleAdsCustomerId) ||
+          data[0];
+
+        setProjects(data);
+        setSelectedProjectId(selectedProject?.id || "");
+      })
+      .catch((loadError) => {
+        console.error("Google Ads projects load error:", loadError);
+
+        if (isActive) {
+          setError(loadError.message);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingProjects(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [projectIdParam]);
+
+  useEffect(() => {
+    let isActive = true;
+    const params = new URLSearchParams();
+
+    if (selectedCustomerId) {
+      params.set("customerId", selectedCustomerId);
+    }
+
+    if (range) {
+      params.set("range", range);
+    }
+
+    if (startDate) {
+      params.set("startDate", startDate);
+    }
+
+    if (endDate) {
+      params.set("endDate", endDate);
+    }
+
+    Promise.resolve()
+      .then(() => {
+        setIsLoading(true);
+
+        return fetch(
+          `/api/google-ads/mcc${params.toString() ? `?${params}` : ""}`,
+          {
+            cache: "no-store",
+          }
+        );
+      })
       .then(async (response) => {
         const data = await response.json();
 
@@ -251,7 +329,11 @@ export function GoogleAdsMccPage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [endDate, range, selectedCustomerId, startDate]);
+
+  function handleProjectChange(projectId) {
+    setSelectedProjectId(projectId);
+  }
 
   const overview = dashboard.overview;
   const kpis = [
@@ -292,19 +374,20 @@ export function GoogleAdsMccPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-500">Executive MCC</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
               Google Ads MCC Dashboard
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Live Google Ads API reporting aggregated across every customer
-              account under the manager account.
-            </p>
-          </div>
-          <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
-            {isLoading ? "Loading live data..." : "Live Google Ads API"}
           </div>
         </div>
+
+        <ProjectWorkspaceControls
+          isLoadingProjects={isLoadingProjects}
+          metaLabel={selectedCustomerId ? "Customer ID" : "Google Ads"}
+          metaValue={selectedCustomerId || "MCC aggregate"}
+          onProjectChange={handleProjectChange}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+        />
 
         {error ? (
           <Card>
