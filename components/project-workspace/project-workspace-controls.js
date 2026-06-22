@@ -8,6 +8,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { projectToolNavigation } from "@/components/layout/navigation";
 import {
   dateRangeOptions,
+  formatDateInput,
   getDefaultDateRange,
 } from "@/utils/date-range";
 import { cn } from "@/utils/cn";
@@ -74,7 +75,7 @@ function getCalendarDays(monthDate) {
     return {
       date,
       isCurrentMonth: date.getMonth() === monthDate.getMonth(),
-      value: date.toISOString().slice(0, 10),
+      value: formatDateInput(date),
     };
   });
 }
