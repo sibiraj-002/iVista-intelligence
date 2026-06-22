@@ -2,11 +2,11 @@ import { cn } from "@/utils/cn";
 
 const variants = {
   default:
-    "bg-zinc-950 text-white shadow-sm hover:bg-zinc-800 focus-visible:ring-zinc-950",
+    "bg-[#ed2225] text-white shadow-sm hover:bg-[#c32222] focus-visible:ring-[#ed2225]",
   ghost:
-    "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:ring-zinc-300",
+    "text-zinc-700 hover:bg-zinc-100 hover:text-[#ed2225] focus-visible:ring-zinc-300",
   outline:
-    "border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 focus-visible:ring-zinc-300",
+    "border border-[#ed2225] bg-white text-[#ed2225] shadow-sm hover:bg-[#ed2225] hover:text-white focus-visible:ring-[#ed2225]",
 };
 
 const sizes = {

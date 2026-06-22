@@ -4,11 +4,12 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+
+import { ResponsiveChart } from "@/components/charts/responsive-chart";
 
 function formatNumber(value) {
   if (value >= 1000) {
@@ -20,9 +21,8 @@ function formatNumber(value) {
 
 export function TrafficOverviewChartClient({ data }) {
   return (
-    <div className="h-72 min-w-0">
-      <ResponsiveContainer height="100%" minWidth={0} width="100%">
-        <AreaChart
+    <ResponsiveChart height={288}>
+      <AreaChart
           data={data}
           margin={{ bottom: 0, left: -12, right: 8, top: 10 }}
         >
@@ -103,7 +103,6 @@ export function TrafficOverviewChartClient({ data }) {
             yAxisId="conversions"
           />
         </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    </ResponsiveChart>
   );
 }

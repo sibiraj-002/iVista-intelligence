@@ -446,7 +446,7 @@ export function GoogleTagManagerPage() {
 
             <TagsTable tags={tagManager.tags} />
 
-            <section className="grid gap-4 xl:grid-cols-2">
+            <section className="flex flex-col gap-4">
               <SimpleTable
                 emptyMessage="No triggers returned for this workspace."
                 labelTitle="Trigger"

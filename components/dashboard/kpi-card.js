@@ -2,7 +2,10 @@ import { ArrowUpRight } from "lucide-react";
 
 export function KpiCard({ icon: Icon, label, value, change }) {
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <article
+      className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+      data-reveal
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-sm">
           <Icon className="h-5 w-5" />

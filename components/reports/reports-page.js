@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Loader2, RefreshCw } from "lucide-react";
 
+import { PageReveal } from "@/components/animations/page-reveal";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -132,8 +133,15 @@ export function ReportsPage() {
 
   return (
     <DashboardLayout eyebrow="Reports">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <PageReveal
+        className="space-y-6"
+        deps={[isLoading, reportCount]}
+        revealOptions={{ stagger: 0.09, y: 26 }}
+      >
+        <div
+          className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+          data-reveal
+        >
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
               Saved reports
@@ -167,13 +175,13 @@ export function ReportsPage() {
         ) : null}
 
         <section className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card data-reveal>
             <CardHeader>
               <CardDescription>Total saved reports</CardDescription>
               <CardTitle className="text-3xl">{reportCount}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="md:col-span-2">
+          <Card className="md:col-span-2" data-reveal>
             <CardHeader>
               <CardDescription>Latest report</CardDescription>
               <CardTitle>
@@ -186,7 +194,7 @@ export function ReportsPage() {
           </Card>
         </section>
 
-        <Card>
+        <Card data-reveal>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" />
@@ -264,7 +272,7 @@ export function ReportsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PageReveal>
     </DashboardLayout>
   );
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BarChart3, CalendarRange, RefreshCw, Sparkles } from "lucide-react";
 import ReactSelect from "react-select";
 
+import { PageReveal } from "@/components/animations/page-reveal";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,7 +105,7 @@ function ReportTable({
   title,
 }) {
   return (
-    <Card>
+    <Card data-reveal>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
@@ -259,8 +260,15 @@ export function GoogleAnalyticsComparePage() {
 
   return (
     <DashboardLayout eyebrow="Compare">
-      <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-3xl border border-cyan-950/10 bg-linear-to-br from-cyan-950 via-slate-900 to-zinc-950 p-6 text-white shadow-2xl">
+      <PageReveal
+        className="space-y-6"
+        deps={[isLoadingComparison, comparison.monthColumns.length, refreshKey]}
+        revealOptions={{ delay: 0.04, stagger: 0.07, y: 30 }}
+      >
+        <section
+          className="relative overflow-hidden rounded-3xl border border-cyan-950/10 bg-linear-to-br from-cyan-950 via-slate-900 to-zinc-950 p-6 text-white shadow-2xl"
+          data-reveal
+        >
           <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="absolute -bottom-20 left-12 h-52 w-52 rounded-full bg-violet-500/20 blur-3xl" />
 
@@ -417,7 +425,7 @@ export function GoogleAnalyticsComparePage() {
             />
           </div>
         )}
-      </div>
+      </PageReveal>
     </DashboardLayout>
   );
 }
