@@ -4,11 +4,12 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+
+import { ResponsiveChart } from "@/components/charts/responsive-chart";
 
 function formatCurrency(value) {
   return `$${new Intl.NumberFormat("en-US", {
@@ -38,9 +39,8 @@ export function PerformanceTrendChartClient({ data, metric = "spend" }) {
   const config = metricConfig[metric];
 
   return (
-    <div className="h-80 min-w-0">
-      <ResponsiveContainer height="100%" minWidth={0} width="100%">
-        <AreaChart
+    <ResponsiveChart height={320}>
+      <AreaChart
           data={data}
           margin={{ bottom: 0, left: -6, right: 8, top: 10 }}
         >
@@ -101,7 +101,6 @@ export function PerformanceTrendChartClient({ data, metric = "spend" }) {
             yAxisId={metric}
           />
         </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    </ResponsiveChart>
   );
 }

@@ -19,11 +19,12 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+
+import { ResponsiveChart } from "@/components/charts/responsive-chart";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
@@ -44,6 +45,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProjects } from "@/services/projects";
+import { PageMetricsMobileCard } from "@/components/shared/page-metrics-mobile-card";
+import { PageUrlLink } from "@/components/shared/page-url-link";
+import { buildPageUrl } from "@/utils/page-url";
 
 const emptyAnalytics = {
   dateRange: {
@@ -123,9 +127,8 @@ function AnalyticsTrendChart({ data }) {
   }
 
   return (
-    <div className="h-72 min-w-0">
-      <ResponsiveContainer height="100%" minWidth={0} width="100%">
-        <AreaChart
+    <ResponsiveChart height={288}>
+      <AreaChart
           data={data}
           margin={{ bottom: 0, left: -12, right: 8, top: 10 }}
         >
@@ -195,44 +198,76 @@ function AnalyticsTrendChart({ data }) {
             type="monotone"
           />
         </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    </ResponsiveChart>
   );
 }
 
-function TopPagesTable({ pages }) {
+function TopPagesTable({ pages, website }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Top Pages</CardTitle>
         <CardDescription>
-          Pages ranked by GA4 screen/page views for the selected project.
+          Full page URLs ranked by GA4 screen/page views for the selected
+          project.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {pages.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Page Path</TableHead>
-                <TableHead>Views</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Events</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pages.map((page) => (
-                <TableRow key={page.path}>
-                  <TableCell className="font-medium text-zinc-950">
-                    {page.path}
-                  </TableCell>
-                  <TableCell>{formatNumber(page.pageViews)}</TableCell>
-                  <TableCell>{formatNumber(page.activeUsers)}</TableCell>
-                  <TableCell>{formatNumber(page.eventCount)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <div className="space-y-3 md:hidden">
+              {pages.map((page) => {
+                const pageUrl = buildPageUrl(website, page.path);
+
+                return (
+                  <PageMetricsMobileCard
+                    key={pageUrl}
+                    metrics={[
+                      { label: "Views", value: formatNumber(page.pageViews) },
+                      { label: "Users", value: formatNumber(page.activeUsers) },
+                      { label: "Events", value: formatNumber(page.eventCount) },
+                    ]}
+                    url={pageUrl}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[280px]">Page</TableHead>
+                    <TableHead>Views</TableHead>
+                    <TableHead>Users</TableHead>
+                    <TableHead>Events</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pages.map((page) => {
+                    const pageUrl = buildPageUrl(website, page.path);
+
+                    return (
+                      <TableRow key={pageUrl}>
+                        <TableCell className="min-w-[280px] max-w-xl">
+                          <PageUrlLink url={pageUrl} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatNumber(page.pageViews)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatNumber(page.activeUsers)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatNumber(page.eventCount)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : (
           <div className="rounded-xl bg-zinc-50 p-10 text-center text-sm font-medium text-zinc-500">
             No page data returned for this property yet.
@@ -616,9 +651,9 @@ export function GoogleAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <TopPagesTable pages={analytics.topPages} />
+            <TopPagesTable pages={analytics.topPages} website={selectedProject?.website} />
 
-            <section className="grid gap-4 xl:grid-cols-2">
+            <section className="flex flex-col gap-4">
               <CountriesTable countries={analytics.countries} />
               <PageDetailsTable pages={analytics.pageDetails} />
             </section>

@@ -11,11 +11,16 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import gsap from "gsap";
+
+import { PageReveal } from "@/components/animations/page-reveal";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
 import { Button } from "@/components/ui/button";
+import { useGsapCountUp } from "@/hooks/use-gsap-count-up";
 import { getProjects } from "@/services/projects";
 import { cn } from "@/utils/cn";
+import { prefersReducedMotion } from "@/utils/motion";
 
 const statusStyles = {
   critical: "from-slate-950 via-slate-900 to-blue-950",
@@ -134,7 +139,10 @@ function getLatestRowValue(rows, label, latestMonthKey) {
 
 function ExecutiveMetricCard({ label, value }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div
+      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      data-reveal
+    >
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
         {label}
       </p>
@@ -147,7 +155,10 @@ function ExecutiveMetricCard({ label, value }) {
 
 function InsightCard({ insight, index }) {
   return (
-    <div className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <div
+      className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+      data-reveal
+    >
       <div className="border-b border-slate-100 bg-slate-50 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -256,6 +267,36 @@ export function AIInsightsPage() {
     analysisResult?.dataAvailability
   );
   const status = analysis.status || "needs_attention";
+  const healthScoreRef = useGsapCountUp(analysis.healthScore, [
+    analysis.healthScore,
+    analysisResult?.generatedAt,
+  ]);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      return undefined;
+    }
+
+    const orbs = gsap.utils.toArray(".hero-orb");
+
+    if (!orbs.length) {
+      return undefined;
+    }
+
+    const tweens = orbs.map((orb, index) =>
+      gsap.to(orb, {
+        duration: 3.6 + index * 0.8,
+        ease: "sine.inOut",
+        repeat: -1,
+        y: index % 2 === 0 ? 14 : -10,
+        yoyo: true,
+      })
+    );
+
+    return () => {
+      tweens.forEach((tween) => tween.kill());
+    };
+  }, [selectedProjectId]);
 
   useEffect(() => {
     let isActive = true;
@@ -432,8 +473,15 @@ export function AIInsightsPage() {
 
   return (
     <DashboardLayout eyebrow="AI Insights">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <PageReveal
+        className="space-y-6"
+        deps={[selectedProjectId]}
+        revealOptions={{ stagger: 0.08, y: 24 }}
+      >
+        <div
+          className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+          data-reveal
+        >
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
               AI report builder
@@ -475,14 +523,16 @@ export function AIInsightsPage() {
           </div>
         </div>
 
-        <ProjectWorkspaceControls
-          isLoadingProjects={isLoadingProjects}
-          metaLabel="AI model"
-          metaValue="Gemini 2.5 Flash"
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onProjectChange={handleProjectChange}
-        />
+        <div data-reveal>
+          <ProjectWorkspaceControls
+            isLoadingProjects={isLoadingProjects}
+            metaLabel="AI model"
+            metaValue="Gemini 2.5 Flash"
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onProjectChange={handleProjectChange}
+          />
+        </div>
 
         {error ? (
           <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
@@ -496,15 +546,18 @@ export function AIInsightsPage() {
           </div>
         ) : null}
 
-        <section className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm">
+        <section
+          className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm"
+          data-reveal
+        >
           <div
             className={cn(
               "relative overflow-hidden bg-linear-to-r p-7 text-white",
               statusStyles[status] || statusStyles.needs_attention
             )}
           >
-            <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
-            <div className="absolute right-36 top-14 h-32 w-32 rounded-full bg-blue-300/10 blur-xl" />
+            <div className="hero-orb absolute -right-12 -top-20 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
+            <div className="hero-orb absolute right-36 top-14 h-32 w-32 rounded-full bg-blue-300/10 blur-xl" />
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
@@ -536,8 +589,8 @@ export function AIInsightsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
                   Health Score
                 </p>
-                <p className="mt-2 text-5xl font-semibold">
-                  {analysis.healthScore ?? "--"}
+                <p className="mt-2 text-5xl font-semibold" ref={healthScoreRef}>
+                  --
                 </p>
               </div>
             </div>
@@ -549,7 +602,10 @@ export function AIInsightsPage() {
           </div>
         </section>
 
-        <section className="rounded-4xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section
+          className="rounded-4xl border border-slate-200 bg-white p-5 shadow-sm"
+          data-reveal
+        >
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
@@ -567,8 +623,12 @@ export function AIInsightsPage() {
           </div>
         </section>
 
-        <section className="space-y-4">
-          <div>
+        <PageReveal
+          className="space-y-4"
+          deps={[visibleInsights.length, analysisResult?.generatedAt]}
+          revealOptions={{ delay: 0.05, stagger: 0.09, y: 32 }}
+        >
+          <div data-reveal>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
               AI insight board
             </p>
@@ -586,7 +646,10 @@ export function AIInsightsPage() {
                 />
               ))
             ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+              <div
+                className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center"
+                data-reveal
+              >
                 <Sparkles className="mx-auto h-8 w-8 text-blue-600" />
                 <p className="mt-4 text-sm font-semibold text-slate-700">
                   Generate a report to create AI insight cards.
@@ -594,9 +657,8 @@ export function AIInsightsPage() {
               </div>
             )}
           </div>
-        </section>
-
-      </div>
+        </PageReveal>
+      </PageReveal>
     </DashboardLayout>
   );
 }

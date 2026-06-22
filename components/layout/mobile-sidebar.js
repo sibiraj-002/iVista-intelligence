@@ -23,13 +23,13 @@ export function MobileSidebar({ isOpen, onClose }) {
       />
       <div
         className={cn(
-          "absolute inset-y-0 left-0 w-72 transform bg-white shadow-2xl transition-transform duration-200 ease-out",
+          "absolute inset-y-0 left-0 w-72 transform bg-black shadow-2xl transition-transform duration-200 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <Button
           aria-label="Close sidebar"
-          className="absolute right-3 top-3 z-10"
+          className="absolute right-3 top-3 z-10 text-white hover:bg-white/10 hover:text-white"
           onClick={onClose}
           size="icon"
           variant="ghost"

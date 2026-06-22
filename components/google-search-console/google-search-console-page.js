@@ -16,11 +16,12 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+
+import { ResponsiveChart } from "@/components/charts/responsive-chart";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ProjectWorkspaceControls } from "@/components/project-workspace/project-workspace-controls";
@@ -41,6 +42,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getProjects } from "@/services/projects";
+import { PageMetricsMobileCard } from "@/components/shared/page-metrics-mobile-card";
+import { PageUrlLink } from "@/components/shared/page-url-link";
+import { buildPageUrl } from "@/utils/page-url";
 
 const emptySearchConsole = {
   dateRange: {
@@ -135,9 +139,8 @@ function SearchTrendChart({ data }) {
   }
 
   return (
-    <div className="h-72 min-w-0">
-      <ResponsiveContainer height="100%" minWidth={0} width="100%">
-        <AreaChart
+    <ResponsiveChart height={288}>
+      <AreaChart
           data={data}
           margin={{ bottom: 0, left: -12, right: 8, top: 10 }}
         >
@@ -213,12 +216,20 @@ function SearchTrendChart({ data }) {
             type="monotone"
           />
         </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    </ResponsiveChart>
   );
 }
 
-function PerformanceTable({ emptyMessage, labelKey, labelTitle, rows, title }) {
+function PerformanceTable({
+  emptyMessage,
+  labelKey,
+  labelTitle,
+  rows,
+  title,
+  website,
+}) {
+  const showPageUrls = labelKey === "page";
+
   return (
     <Card>
       <CardHeader>
@@ -229,30 +240,83 @@ function PerformanceTable({ emptyMessage, labelKey, labelTitle, rows, title }) {
       </CardHeader>
       <CardContent>
         {rows.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{labelTitle}</TableHead>
-                <TableHead>Clicks</TableHead>
-                <TableHead>Impressions</TableHead>
-                <TableHead>CTR</TableHead>
-                <TableHead>Position</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={`${labelKey}-${row[labelKey]}`}>
-                  <TableCell className="max-w-md font-medium text-zinc-950">
-                    {row[labelKey]}
-                  </TableCell>
-                  <TableCell>{formatNumber(row.clicks)}</TableCell>
-                  <TableCell>{formatNumber(row.impressions)}</TableCell>
-                  <TableCell>{formatPercent(row.ctr)}</TableCell>
-                  <TableCell>{formatPosition(row.position)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            {showPageUrls ? (
+              <div className="space-y-3 md:hidden">
+                {rows.map((row) => {
+                  const pageUrl = buildPageUrl(website, row[labelKey]);
+
+                  return (
+                    <PageMetricsMobileCard
+                      key={pageUrl}
+                      metrics={[
+                        { label: "Clicks", value: formatNumber(row.clicks) },
+                        {
+                          label: "Impressions",
+                          value: formatNumber(row.impressions),
+                        },
+                        { label: "CTR", value: formatPercent(row.ctr) },
+                        { label: "Position", value: formatPosition(row.position) },
+                      ]}
+                      url={pageUrl}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className={showPageUrls ? "hidden md:block" : undefined}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {showPageUrls ? (
+                      <TableHead className="min-w-[280px]">Page</TableHead>
+                    ) : (
+                      <TableHead>{labelTitle}</TableHead>
+                    )}
+                    <TableHead>Clicks</TableHead>
+                    <TableHead>Impressions</TableHead>
+                    <TableHead>CTR</TableHead>
+                    <TableHead>Position</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => {
+                    const labelValue = row[labelKey];
+                    const pageUrl = showPageUrls
+                      ? buildPageUrl(website, labelValue)
+                      : labelValue;
+
+                    return (
+                      <TableRow key={`${labelKey}-${labelValue}`}>
+                        {showPageUrls ? (
+                          <TableCell className="min-w-[280px] max-w-xl">
+                            <PageUrlLink url={pageUrl} />
+                          </TableCell>
+                        ) : (
+                          <TableCell className="max-w-md font-medium text-zinc-950">
+                            {labelValue}
+                          </TableCell>
+                        )}
+                        <TableCell className="whitespace-nowrap">
+                          {formatNumber(row.clicks)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatNumber(row.impressions)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatPercent(row.ctr)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatPosition(row.position)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : (
           <div className="rounded-xl bg-zinc-50 p-10 text-center text-sm font-medium text-zinc-500">
             {emptyMessage}
@@ -521,7 +585,7 @@ export function GoogleSearchConsolePage() {
               </CardContent>
             </Card>
 
-            <section className="grid gap-4 xl:grid-cols-2">
+            <section className="flex flex-col gap-4">
               <PerformanceTable
                 emptyMessage="No query data returned for this property yet."
                 labelKey="query"
@@ -535,6 +599,7 @@ export function GoogleSearchConsolePage() {
                 labelTitle="Page"
                 rows={searchConsole.topPages}
                 title="Top Pages"
+                website={selectedProject?.website}
               />
               <PerformanceTable
                 emptyMessage="No country data returned for this property yet."

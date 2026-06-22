@@ -1,8 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { PageReveal } from "@/components/animations/page-reveal";
 
 import { AiRecommendationsCard } from "@/components/dashboard/ai-recommendations-card";
 import { DashboardAnalyticsKpis } from "@/components/dashboard/dashboard-analytics-kpis";
@@ -10,9 +8,6 @@ import { dashboardData } from "@/components/dashboard/dashboard-data";
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { TrafficOverviewChart } from "@/components/dashboard/traffic-overview-chart";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { ProjectForm } from "@/components/projects/project-form";
-import { addProject } from "@/services/projects";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -51,7 +46,7 @@ function StatusBadge({ status }) {
 
 function ProjectPerformanceTable() {
   return (
-    <Card>
+    <Card data-reveal>
       <CardHeader>
         <CardTitle>Top Performing Clients</CardTitle>
         <CardDescription>
@@ -108,7 +103,7 @@ function ProjectPerformanceTable() {
 
 function CampaignPerformanceTable() {
   return (
-    <Card>
+    <Card data-reveal>
       <CardHeader>
         <CardTitle>Campaign Performance</CardTitle>
         <CardDescription>
@@ -154,32 +149,13 @@ function CampaignPerformanceTable() {
 }
 
 export function DashboardOverview() {
-  const router = useRouter();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isSubmittingProject, setIsSubmittingProject] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  async function handleCreateProject(project) {
-    setCreateError("");
-    setIsSubmittingProject(true);
-
-    try {
-      const result = await addProject(project);
-      window.dispatchEvent(new Event("projects-change"));
-      setIsCreateOpen(false);
-      router.push(`/projects/${result.id}`);
-    } catch (error) {
-      console.error("Dashboard project create error:", error);
-      setCreateError(error.message);
-    } finally {
-      setIsSubmittingProject(false);
-    }
-  }
-
   return (
     <DashboardLayout eyebrow="Dashboard">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <PageReveal className="space-y-6" revealOptions={{ stagger: 0.08, y: 22 }}>
+        <div
+          className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+          data-reveal
+        >
           <div>
             <p className="text-sm font-medium text-zinc-500">
               Executive Portfolio
@@ -193,21 +169,12 @@ export function DashboardOverview() {
               trends, and executive recommendations.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
-              Updated 3 minutes ago
-            </div>
-            <Button
-              aria-label="Create project"
-              onClick={() => setIsCreateOpen(true)}
-              size="icon"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+          <div className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 shadow-sm">
+            Updated 3 minutes ago
           </div>
         </div>
 
-        <div>
+        <div data-reveal>
           <h2 className="text-lg font-semibold tracking-tight text-zinc-950">
             Portfolio Overview
           </h2>
@@ -221,7 +188,10 @@ export function DashboardOverview() {
 
         <CampaignPerformanceTable />
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section
+          className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+          data-reveal
+        >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-zinc-950">
@@ -241,48 +211,20 @@ export function DashboardOverview() {
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-          <AiRecommendationsCard
-            recommendations={dashboardData.recommendations}
-          />
-          <RecentActivityCard
-            activities={dashboardData.recentActivity}
-            description="Executive signals that need attention in the current cycle."
-            title="Recent Alerts"
-          />
-        </section>
-      </div>
-
-      {isCreateOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto">
-            <Button
-              aria-label="Close create project"
-              className="absolute right-3 top-3 z-10"
-              onClick={() => setIsCreateOpen(false)}
-              size="icon"
-              variant="ghost"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-
-            {createError ? (
-              <Card className="mb-3">
-                <CardContent className="p-4 text-sm font-medium text-red-700">
-                  {createError}
-                </CardContent>
-              </Card>
-            ) : null}
-
-            <ProjectForm
-              description="Create a client project and add IDs for GA4, Search Console, and Google Ads when available."
-              isSubmitting={isSubmittingProject}
-              onSubmit={handleCreateProject}
-              submitLabel="Create Project"
-              title="Create New Project"
+          <div data-reveal>
+            <AiRecommendationsCard
+              recommendations={dashboardData.recommendations}
             />
           </div>
-        </div>
-      ) : null}
+          <div data-reveal>
+            <RecentActivityCard
+              activities={dashboardData.recentActivity}
+              description="Executive signals that need attention in the current cycle."
+              title="Recent Alerts"
+            />
+          </div>
+        </section>
+      </PageReveal>
     </DashboardLayout>
   );
 }
